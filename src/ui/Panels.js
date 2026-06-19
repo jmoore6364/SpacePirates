@@ -3,7 +3,9 @@
 // All read/write the shared player + mission log and call onClose so the scene
 // can unlock input.
 import { UPGRADES } from '../game/Player.js';
-import { marketTable, buy as marketBuy, sell as marketSell } from '../game/Market.js';
+import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById } from '../game/Market.js';
+
+const commodityName = (id) => commodityById(id)?.name || id;
 
 function injectStyles() {
   if (document.getElementById('vc-panel-style')) return;
@@ -173,10 +175,16 @@ export class Market extends BasePanel {
       </div>`;
     }).join('');
 
+    const evs = activeEventsFor(this.world.id);
+    const banner = evs.length
+      ? `<div class="vc-sub" style="color:#ffd24a;opacity:1">⚠ ${evs.map((e) => `${e.kind === 'shortage' ? '▲' : '▼'} ${commodityName(e.commodity)} ${e.kind}`).join(' · ')}</div>`
+      : '';
+
     this.root.innerHTML = `<div class="vc-panel">
       <div class="vc-head"><div class="vc-title">◈ ${this.world.name.toUpperCase()} MARKET</div>
       <div class="vc-credits">${p.credits} cr</div></div>
       <div class="vc-sub">Buy low here, sell high elsewhere. Hold ${p.cargoUsed()}/${p.cargoCap()}. [E]/[Esc] to leave.</div>
+      ${banner}
       ${rows}
       <div class="vc-foot">Upgrade Cargo at the Trader to haul bigger loads.</div>
     </div>`;

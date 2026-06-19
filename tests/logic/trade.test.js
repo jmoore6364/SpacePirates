@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Player } from '../../src/game/Player.js';
 import {
   COMMODITIES, buyPrice, sellPrice, buy, sell, bestRouteFrom,
+  applyEvent, tickMarket, shockMult,
 } from '../../src/game/Market.js';
 import { MissionLog, generateOffers } from '../../src/game/Missions.js';
 import { WORLDS } from '../../src/world/Worlds.js';
@@ -60,6 +61,25 @@ test('a profitable buy-low/sell-high route exists and nets profit', () => {
   buy(p, 'neon-haven', route.commodity, 1);
   sell(p, route.to, route.commodity, 1);
   assert.ok(p.credits > before); // round trip profits
+});
+
+test('market shocks move prices and then mean-revert', () => {
+  const before = sellPrice('the-maw', 'ore'); // untouched key
+  assert.equal(shockMult('the-maw', 'ore'), 1);
+  applyEvent('the-maw', 'ore', 'shortage', 2.0);
+  const during = sellPrice('the-maw', 'ore');
+  assert.ok(during > before);
+  assert.ok(Math.abs(during - before * 2) <= 2); // ~doubled
+  for (let i = 0; i < 10; i++) tickMarket([]); // empty worlds → decay only, no new events
+  assert.equal(shockMult('the-maw', 'ore'), 1);
+  assert.equal(sellPrice('the-maw', 'ore'), before); // back to baseline
+});
+
+test('surplus event lowers price', () => {
+  const before = sellPrice('verdant', 'parts');
+  applyEvent('verdant', 'parts', 'surplus', 0.5);
+  assert.ok(sellPrice('verdant', 'parts') < before);
+  for (let i = 0; i < 10; i++) tickMarket([]);
 });
 
 test('bounty mission completes after enough kills', () => {

@@ -11,6 +11,7 @@ import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
 import { AudioManager } from './systems/Audio.js';
+import { tickMarket, commodityById } from './game/Market.js';
 import { clamp } from './util/math.js';
 
 const clamp01 = (x) => clamp(x, 0, 1);
@@ -113,10 +114,15 @@ function land(world) {
   transition(() => {
     surface = new SurfaceScene(input, world);
     scenes.switchTo(Mode.SURFACE, surface);
+    // advance the living economy each time you make planetfall
+    const news = tickMarket(WORLDS);
+
     const done = missionLog.arriveAt(world.id);
     if (done.length) {
       const sum = done.reduce((a, m) => a + m.reward, 0);
       toast(`Delivered ${done.length} job(s) at ${world.name} — +${sum} cr`);
+    } else if (news) {
+      toast(`NEWS: ${commodityLabel(news)}`);
     } else {
       toast(`Touchdown — ${world.name}. [E] interact · [T] take off`);
     }
@@ -140,6 +146,12 @@ function takeoff(world) {
     enterSpace(world.id);
     toast(`Lifting off from ${world.name}.`);
   });
+}
+
+function commodityLabel(ev) {
+  const w = WORLDS.find((x) => x.id === ev.world)?.name || ev.world;
+  const name = commodityById(ev.commodity)?.name || ev.commodity;
+  return `${ev.kind === 'shortage' ? '▲' : '▼'} ${name} ${ev.kind} on ${w}`;
 }
 
 let toastTimer = 0;

@@ -26,11 +26,60 @@ function worldFactor(worldId, commodityId) {
   return 0.55 + (h % 91) / 100;
 }
 
+// --- dynamic supply/demand shocks (the living economy) ---
+// Transient per-world/commodity multipliers that mean-revert toward 1 each tick.
+const shocks = {};      // `${world}:${commodity}` -> multiplier
+const events = [];      // active named events { world, commodity, kind, label, life }
+
+const skey = (w, c) => `${w}:${c}`;
+export function shockMult(worldId, commodityId) {
+  return shocks[skey(worldId, commodityId)] ?? 1;
+}
+
+// Force a shortage (prices up) or surplus (prices down). mult optional (testable).
+export function applyEvent(worldId, commodityId, kind, mult) {
+  const c = commodityById(commodityId);
+  const m = mult != null ? mult
+    : kind === 'shortage' ? 1.5 + Math.random() * 0.6
+      : 0.45 + Math.random() * 0.25;
+  shocks[skey(worldId, commodityId)] = m;
+  const ev = {
+    world: worldId, commodity: commodityId, kind, life: 3,
+    label: `${c ? c.name : commodityId} ${kind} on ${worldId}`,
+  };
+  events.push(ev);
+  return ev;
+}
+
+// Advance the galaxy economy one step: shocks decay toward 1, events age out, and
+// a fresh shock may strike. Returns the new event (for a news toast) or null.
+export function tickMarket(worlds = []) {
+  for (const k of Object.keys(shocks)) {
+    const m = shocks[k] + (1 - shocks[k]) * 0.34; // mean-revert
+    if (Math.abs(m - 1) < 0.04) delete shocks[k];
+    else shocks[k] = m;
+  }
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (--events[i].life <= 0) events.splice(i, 1);
+  }
+  if (worlds.length && Math.random() < 0.7) {
+    const w = worlds[Math.floor(Math.random() * worlds.length)];
+    const c = COMMODITIES[Math.floor(Math.random() * COMMODITIES.length)];
+    const kind = Math.random() < 0.5 ? 'shortage' : 'surplus';
+    return applyEvent(w.id, c.id, kind);
+  }
+  return null;
+}
+
+export function activeEventsFor(worldId) {
+  return events.filter((e) => e.world === worldId);
+}
+
 // What the market pays you to SELL one unit here.
 export function sellPrice(worldId, commodityId) {
   const c = commodityById(commodityId);
   if (!c) return 0;
-  return Math.round(c.base * worldFactor(worldId, commodityId));
+  return Math.round(c.base * worldFactor(worldId, commodityId) * shockMult(worldId, commodityId));
 }
 
 // What it costs to BUY one unit here (a margin above sell so same-world flipping
