@@ -101,6 +101,17 @@ async function main() {
     await sleep(600);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-rest.png') });
 
+    // #3 follow markers: the overlay canvas should have drawn something in space
+    const markersDrawn = await page.evaluate(() => {
+      const c = document.getElementById('markers');
+      if (!c.width || !c.height) return false;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return true;
+      return false;
+    });
+    if (!markersDrawn) errors.push('follow markers not drawn in space');
+    console.log(`› follow markers drawn: ${markersDrawn}`);
+
     // fly: full throttle + a banking turn, then capture motion
     await page.evaluate(() => {
       const i = window.__VC__?.input;

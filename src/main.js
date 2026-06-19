@@ -1,4 +1,4 @@
-import { Renderer } from './renderer/Renderer.js';
+import { Renderer, THREE } from './renderer/Renderer.js';
 import { GameLoop } from './core/GameLoop.js';
 import { SceneManager, Mode } from './core/GameState.js';
 import { Input } from './core/Input.js';
@@ -31,6 +31,7 @@ const el = {
   credits: document.getElementById('hud-credits'),
   combat: document.getElementById('hud-combat'),
   radar: document.getElementById('radar'),
+  markers: document.getElementById('markers'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -267,6 +268,83 @@ function drawRadar(blips) {
   ctx.closePath(); ctx.fill();
 }
 
+// --- follow markers / waypoints (screen-space, edge-clamped) ---
+const markersCtx = el.markers.getContext('2d');
+const _proj = new THREE.Vector3();
+const fmtDist = (d) => (d >= 1000 ? `${(d / 1000).toFixed(1)}k` : `${Math.round(d)}`);
+
+function diamond(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y);
+  ctx.closePath(); ctx.stroke();
+}
+function chevron(ctx, x, y, ang, r) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * 0.7, r * 0.7); ctx.lineTo(-r * 0.7, -r * 0.7);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function clearMarkers() {
+  const W = window.innerWidth, H = window.innerHeight;
+  if (el.markers.width !== W || el.markers.height !== H) { el.markers.width = W; el.markers.height = H; }
+  markersCtx.clearRect(0, 0, W, H);
+}
+
+function drawMarkers(targets) {
+  const W = window.innerWidth, H = window.innerHeight;
+  if (el.markers.width !== W || el.markers.height !== H) { el.markers.width = W; el.markers.height = H; }
+  const ctx = markersCtx; ctx.clearRect(0, 0, W, H);
+  const cam = renderer.camera; const cx = W / 2, cy = H / 2, margin = 48;
+
+  for (const t of targets) {
+    _proj.copy(t.pos).project(cam);
+    const behind = _proj.z > 1;
+    const onScreen = !behind && _proj.x >= -1 && _proj.x <= 1 && _proj.y >= -1 && _proj.y <= 1;
+    const col = hex(t.color);
+    const dtxt = t.dist != null ? fmtDist(t.dist) : '';
+    ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.font = '12px Consolas, ui-monospace, monospace'; ctx.textAlign = 'center';
+
+    if (onScreen) {
+      const x = (_proj.x * 0.5 + 0.5) * W, y = (-_proj.y * 0.5 + 0.5) * H;
+      ctx.globalAlpha = t.priority ? 1 : 0.75;
+      diamond(ctx, x, y, t.priority ? 7 : 5);
+      ctx.fillText(dtxt ? `${t.label}  ${dtxt}` : t.label, x, y - 12);
+    } else {
+      let dx = _proj.x, dy = _proj.y; if (behind) { dx = -dx; dy = -dy; }
+      const ang = Math.atan2(-dy, dx);
+      const ex = Math.cos(ang), ey = Math.sin(ang);
+      const scale = Math.min((W / 2 - margin) / Math.abs(ex || 1e-3), (H / 2 - margin) / Math.abs(ey || 1e-3));
+      const px = cx + ex * scale, py = cy + ey * scale;
+      ctx.globalAlpha = t.priority ? 0.95 : 0.55;
+      chevron(ctx, px, py, ang, 9);
+      ctx.fillText(t.label, px - ex * 24, py - ey * 16);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function updateMarkers() {
+  if (!started || panel || starMap.isOpen) { clearMarkers(); return; }
+  const targets = [];
+  if (scenes.mode === Mode.SPACE && space) {
+    const ship = space.ship.position;
+    const dest = new Set(missionLog.active.filter((m) => m.type === 'delivery').map((m) => m.to));
+    for (const p of space.planets) {
+      const w = p.userData.world;
+      const isM = dest.has(w.id);
+      targets.push({ pos: p.position, label: w.name, color: isM ? 0x9effa0 : w.atmo, dist: p.position.distanceTo(ship), priority: isM });
+    }
+  } else if (scenes.mode === Mode.SURFACE && surface) {
+    const ch = surface.character.position;
+    for (const it of surface.interactables) {
+      targets.push({ pos: new THREE.Vector3(it.position.x, it.baseY || 4, it.position.z), label: it.label, color: it.color, dist: Math.hypot(ch.x - it.position.x, ch.z - it.position.z) });
+    }
+    targets.push({ pos: new THREE.Vector3(0, 4, 0), label: 'Your Ship', color: 0xffffff, dist: Math.hypot(ch.x, ch.z), priority: true });
+  } else { clearMarkers(); return; }
+  drawMarkers(targets);
+}
+
 // --- HUD ---
 let hudTimer = 0;
 function renderHud() {
@@ -340,6 +418,7 @@ const loop = new GameLoop({
       toastTimer -= dt;
       if (toastTimer <= 0) el.toast.classList.remove('show');
     }
+    updateMarkers();
     hudTimer += dt;
     if (hudTimer >= 0.12) { hudTimer = 0; renderHud(); }
   },

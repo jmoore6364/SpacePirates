@@ -113,7 +113,7 @@ export class SurfaceScene {
     pl.position.copy(orb.position);
     this.scene.add(pl);
 
-    this.interactables.push({ id, label, position: pos.clone(), orb, baseY: gy + 5.2 });
+    this.interactables.push({ id, label, position: pos.clone(), orb, baseY: gy + 5.2, color });
   }
 
   _addAmbientNPCs() {
