@@ -108,12 +108,29 @@ stronghold).
 
 ## Roadmap
 
-Tracked as GitHub issues — contributions welcome:
+Tracked as GitHub issues — contributions welcome.
 
-- [#1 Planetary terrain](https://github.com/jmoore6364/SpacePirates/issues/1) — replace the flat city ground with real low-poly terrain.
-- [#2 Lighting & atmosphere](https://github.com/jmoore6364/SpacePirates/issues/2) — richer per-world lighting, shadows, day/night.
-- [#3 Follow markers / waypoints](https://github.com/jmoore6364/SpacePirates/issues/3) — on-screen markers to mission targets, vendors, and your ship.
-- [#4 Storylines & quests](https://github.com/jmoore6364/SpacePirates/issues/4) — a branching narrative with named NPCs and a campaign.
+**World & visuals**
+- [#1 Planetary terrain](https://github.com/jmoore6364/SpacePirates/issues/1) — real low-poly terrain instead of the flat city ground.
+- [#2 Lighting & atmosphere](https://github.com/jmoore6364/SpacePirates/issues/2) — per-world lighting, shadows, day/night.
+
+**Navigation & UI**
+- [#3 Follow markers / waypoints](https://github.com/jmoore6364/SpacePirates/issues/3) — on-screen markers to targets, vendors, and your ship.
+- [#5 World minimap](https://github.com/jmoore6364/SpacePirates/issues/5) — top-down city map while on foot.
+- [#6 Space sector / system map](https://github.com/jmoore6364/SpacePirates/issues/6) — spatial cluster overview for route planning.
+- [#7 Menu & pause system](https://github.com/jmoore6364/SpacePirates/issues/7) — pause, settings (volume/graphics), save, quit.
+
+**Progression & gameplay**
+- [#4 Storylines & quests](https://github.com/jmoore6364/SpacePirates/issues/4) — branching narrative, named NPCs, a campaign.
+- [#8 Experience, levels & skill tree](https://github.com/jmoore6364/SpacePirates/issues/8) — XP and perks for piloting/gunnery/trading/engineering.
+- [#9 Shipyard — ship variety](https://github.com/jmoore6364/SpacePirates/issues/9) — buy/swap distinct hulls.
+- [#10 Fuel & jump-range](https://github.com/jmoore6364/SpacePirates/issues/10) — fuel makes distance and route planning matter.
+
+**Quality of life**
+- [#11 Save slots + manual save/load](https://github.com/jmoore6364/SpacePirates/issues/11)
+- [#12 Achievements & run stats](https://github.com/jmoore6364/SpacePirates/issues/12)
+- [#13 Gamepad support & key remapping](https://github.com/jmoore6364/SpacePirates/issues/13)
+- [#14 Tutorial / onboarding](https://github.com/jmoore6364/SpacePirates/issues/14)
 
 See the full [issue tracker](https://github.com/jmoore6364/SpacePirates/issues).
 
