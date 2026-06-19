@@ -5,7 +5,7 @@ import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
-import { Shop, MissionBoard, Market, Dialogue } from './ui/Panels.js';
+import { Shop, MissionBoard, Market, Dialogue, Skills } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { WORLDS } from './world/Worlds.js';
@@ -32,6 +32,7 @@ const el = {
   toast: document.getElementById('hud-toast'),
   credits: document.getElementById('hud-credits'),
   combat: document.getElementById('hud-combat'),
+  xp: document.getElementById('hud-xp'),
   quest: document.getElementById('hud-quest'),
   radar: document.getElementById('radar'),
   markers: document.getElementById('markers'),
@@ -64,10 +65,26 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
 }
 
-const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; };
+const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; if (space) space.inputLocked = false; };
 const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
+const skills = new Skills({ onClose: closePanel });
+skills.onChange = () => audio.blip();
+
+// Award XP and surface level-ups.
+function awardXp(n) {
+  const gained = player.addXp(n);
+  if (gained > 0) { audio.blip(); toast(`LEVEL UP — Level ${player.xpLevel} (+${gained} skill pt${gained > 1 ? 's' : ''}) · press K`); }
+}
+
+function openSkills() {
+  if (scenes.mode === Mode.SPACE && space) space.inputLocked = true;
+  else if (surface) surface.inputLocked = true;
+  audio.blip();
+  skills.open(player);
+  panel = skills;
+}
 const dialogue = new Dialogue({ onClose: closePanel });
 
 function applySetting(key, value) {
@@ -101,10 +118,12 @@ function enterSpace(worldId) {
       case 'playerHit': audio.hit(); break;
       case 'kill': {
         audio.explosion();
+        awardXp(20 + (space?.combat?.wanted || 0) * 4);
         const q = questLog.onKill();
         const done = missionLog.recordKill();
-        if (q.completed) toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`);
+        if (q.completed) { awardXp(120); toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`); }
         else if (done.length) {
+          awardXp(50 * done.length);
           const sum = done.reduce((a, m) => a + m.reward, 0);
           toast(`Bounty contract complete — +${sum} cr`);
         } else if (q.advanced) toast(`Objective: ${questLog.objective()}`);
@@ -150,7 +169,7 @@ function land(world) {
       switch (e.type) {
         case 'blaster': audio.laser(); break;
         case 'playerHurt': audio.hit(); break;
-        case 'enforcerDown': audio.explosion(); toast(`Enforcer down — +${e.bounty} cr`); break;
+        case 'enforcerDown': audio.explosion(); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
         case 'playerDown': audio.explosion(); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
       }
     };
@@ -160,11 +179,12 @@ function land(world) {
 
     // quest travel/arrival progress
     const q = questLog.onArrive(world.id);
-    if (q.completed) toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`);
+    if (q.completed) { awardXp(120); toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`); }
     else if (q.advanced) toast(`Objective: ${questLog.objective()}`);
 
     const done = missionLog.arriveAt(world.id);
     if (done.length) {
+      awardXp(30 * done.length);
       const sum = done.reduce((a, m) => a + m.reward, 0);
       toast(`Delivered ${done.length} job(s) at ${world.name} — +${sum} cr`);
     }
@@ -193,7 +213,7 @@ function talkToVex(world) {
   audio.blip();
   dialogue.open('VEX', lines, () => {
     const r = questLog.talk('vex', world.id);
-    if (r.completed) { audio.warp(); toast(`Quest complete: ${r.quest.name} — +${r.reward.credits} cr`); }
+    if (r.completed) { audio.warp(); awardXp(120); toast(`Quest complete: ${r.quest.name} — +${r.reward.credits} cr`); }
     else if (r.advanced) toast(`Objective: ${questLog.objective()}`);
   });
   panel = dialogue;
@@ -283,6 +303,9 @@ window.addEventListener('keydown', (e) => {
       if (scenes.mode === Mode.SURFACE && surface?.hud?.interact) {
         openInteract(surface.world, surface.hud.interact.id);
       }
+      break;
+    case 'KeyK':
+      if (scenes.mode === Mode.SPACE || scenes.mode === Mode.SURFACE) openSkills();
       break;
     default:
       if (starMap.isOpen && /^Digit[1-9]$/.test(e.code)) {
@@ -450,6 +473,9 @@ function renderHud() {
   el.mode.textContent = `MODE: ${scenes.mode}`;
   el.fps.textContent = `${loop.fps} fps`;
   el.credits.textContent = `${player.credits} cr`;
+  const xn = player.xpToNext();
+  const xb = Math.round((player.xp / xn) * 10);
+  el.xp.textContent = `LV ${player.xpLevel} [${'█'.repeat(xb)}${'·'.repeat(10 - xb)}]${player.skillPoints ? ` ${player.skillPoints}pt` : ''}`;
   const obj = questLog.objective();
   el.quest.textContent = obj ? `◈ ${obj}` : '';
   const h = scenes.current?.hud;
@@ -564,7 +590,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen, menu,
-  player, missionLog, questLog, shop, missionBoard, market, dialogue,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },

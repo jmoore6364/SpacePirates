@@ -16,7 +16,19 @@ const DEFAULTS = () => ({
   completed: [],
   cargo: {}, // { commodityId: qty }
   questState: { active: null, step: 0, kill: 0, done: [] },
+  xp: 0,
+  xpLevel: 1,
+  skillPoints: 0,
+  skills: { piloting: 0, gunnery: 0, trading: 0, engineering: 0 },
 });
+
+// Skill tree (data-driven). Each level adds a flat perk to a derived stat.
+export const SKILLS = {
+  piloting:    { name: 'Piloting',    desc: '+30 top speed / level',     max: 5 },
+  gunnery:     { name: 'Gunnery',     desc: '+4 weapon damage / level',  max: 5 },
+  trading:     { name: 'Trading',     desc: '+3% buy/sell / level',      max: 5 },
+  engineering: { name: 'Engineering', desc: '+15 shield, +20 hull / lvl', max: 5 },
+};
 
 export class Player {
   constructor(store = globalThis.localStorage) {
@@ -39,6 +51,7 @@ export class Player {
       this.store.setItem(SAVE_KEY, JSON.stringify({
         credits: this.credits, upgrades: this.upgrades, completed: this.completed,
         cargo: this.cargo, questState: this.questState,
+        xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
       }));
     } catch { /* storage full / disabled — ignore */ }
   }
@@ -54,6 +67,37 @@ export class Player {
   }
 
   level(id) { return this.upgrades[id] || 0; }
+
+  // --- experience & skills ---
+  xpToNext() { return 80 + this.xpLevel * 40; }
+  skillLevel(id) { return this.skills[id] || 0; }
+
+  // Award XP; returns how many levels were gained (each grants a skill point).
+  addXp(n) {
+    if (n <= 0) return 0;
+    this.xp += Math.round(n);
+    let gained = 0;
+    while (this.xp >= this.xpToNext()) {
+      this.xp -= this.xpToNext();
+      this.xpLevel += 1;
+      this.skillPoints += 1;
+      gained += 1;
+    }
+    this.save();
+    return gained;
+  }
+
+  spendSkill(id) {
+    const def = SKILLS[id];
+    if (!def || this.skillPoints <= 0 || this.skillLevel(id) >= def.max) return false;
+    this.skills[id] = this.skillLevel(id) + 1;
+    this.skillPoints -= 1;
+    this.save();
+    return true;
+  }
+
+  // Trade margin bonus from the Trading skill (0..0.15).
+  tradeBonus() { return this.skillLevel('trading') * 0.03; }
 
   // --- cargo hold ---
   cargoCap() { return this.stats().cargo; }
@@ -89,14 +133,14 @@ export class Player {
     this.save();
   }
 
-  // Derived ship stats from upgrade levels.
+  // Derived ship stats from upgrade levels AND skill perks.
   stats() {
     return {
-      maxSpeed: 420 + this.level('engine') * UPGRADES.engine.per,
-      shield:   this.level('shields') * UPGRADES.shields.per,
-      weapon:   10 + this.level('weapons') * UPGRADES.weapons.per,
+      maxSpeed: 420 + this.level('engine') * UPGRADES.engine.per + this.skillLevel('piloting') * 30,
+      shield:   this.level('shields') * UPGRADES.shields.per + this.skillLevel('engineering') * 15,
+      weapon:   10 + this.level('weapons') * UPGRADES.weapons.per + this.skillLevel('gunnery') * 4,
       cargo:    20 + this.level('cargo') * UPGRADES.cargo.per,
-      hull:     100 + this.level('hull') * UPGRADES.hull.per,
+      hull:     100 + this.level('hull') * UPGRADES.hull.per + this.skillLevel('engineering') * 20,
     };
   }
 }

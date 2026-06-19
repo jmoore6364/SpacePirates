@@ -204,6 +204,22 @@ async function main() {
     console.log(`› combat: kills ${kills0}→${combat.kills}, wanted ${combat.wanted}, shield ${combat.shield}, hull ${combat.hull}`);
     if (combat.kills <= kills0) errors.push('combat: fired but destroyed no target');
     console.log('› screenshot → pass5-combat.png');
+
+    // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point
+    await page.evaluate(() => window.__VC__.player.addXp(500)); // guarantee a skill point
+    await page.keyboard.press('k');
+    await page.waitForFunction(() => window.__VC__.skills.isOpen === true, { timeout: 5000 }).catch(() => {});
+    if (!(await page.evaluate(() => window.__VC__.skills.isOpen))) errors.push('skills panel did not open on K');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass8-skills.png') });
+    const sk = await page.evaluate(() => {
+      const before = window.__VC__.player.skillLevel('gunnery');
+      window.__VC__.player.spendSkill('gunnery');
+      return { lvl: window.__VC__.player.xpLevel, gun: window.__VC__.player.skillLevel('gunnery'), was: before };
+    });
+    if (sk.gun <= sk.was) errors.push('could not spend a skill point');
+    console.log(`› skills: level ${sk.lvl}, gunnery ${sk.was}→${sk.gun}`);
+    await page.keyboard.press('Escape'); // close
+    await page.waitForFunction(() => window.__VC__.skills.isOpen === false, { timeout: 5000 }).catch(() => {});
     // clear the field + heal so combat doesn't disrupt later scenes
     await page.evaluate(() => {
       const s = window.__VC__.space; const c = s.combat;

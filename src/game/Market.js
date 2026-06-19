@@ -103,7 +103,8 @@ export function marketTable(worldId) {
 
 export function buy(player, worldId, commodityId, qty = 1) {
   if (qty <= 0) return { ok: false, reason: 'Nothing to buy.' };
-  const cost = buyPrice(worldId, commodityId) * qty;
+  const bonus = player.tradeBonus ? player.tradeBonus() : 0;
+  const cost = Math.round(buyPrice(worldId, commodityId) * (1 - bonus)) * qty;
   if (player.credits < cost) return { ok: false, reason: 'Not enough credits.' };
   if (player.cargoFree() < qty) return { ok: false, reason: 'Cargo hold full.' };
   player.credits -= cost;
@@ -115,10 +116,12 @@ export function buy(player, worldId, commodityId, qty = 1) {
 export function sell(player, worldId, commodityId, qty = 1) {
   const have = player.cargoQty(commodityId);
   if (qty <= 0 || have < qty) return { ok: false, reason: 'You have none to sell.' };
-  const gain = sellPrice(worldId, commodityId) * qty;
+  const bonus = player.tradeBonus ? player.tradeBonus() : 0;
+  const gain = Math.round(sellPrice(worldId, commodityId) * (1 + bonus)) * qty;
   player.credits += gain;
   player.cargo[commodityId] = have - qty;
   if (player.cargo[commodityId] <= 0) delete player.cargo[commodityId];
+  if (player.addXp) player.addXp(Math.max(1, Math.round(gain * 0.03))); // trade XP
   player.save();
   return { ok: true, gain };
 }

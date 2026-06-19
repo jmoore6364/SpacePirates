@@ -2,7 +2,7 @@
 // Mission Board (delivery + bounty jobs), and the Market (commodity trading).
 // All read/write the shared player + mission log and call onClose so the scene
 // can unlock input.
-import { UPGRADES } from '../game/Player.js';
+import { UPGRADES, SKILLS } from '../game/Player.js';
 import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById } from '../game/Market.js';
 
 const commodityName = (id) => commodityById(id)?.name || id;
@@ -146,6 +146,35 @@ export class MissionBoard extends BasePanel {
         if (m && this.log.accept(m).ok) { this.render(); this.onChange && this.onChange(); }
       });
     });
+  }
+}
+
+export class Skills extends BasePanel {
+  constructor(opts) { super('vc-skills', opts); }
+
+  open(player) { this.player = player; this.isOpen = true; this.root.classList.add('open'); this.render(); }
+
+  render() {
+    const p = this.player;
+    const rows = Object.entries(SKILLS).map(([id, def]) => {
+      const lvl = p.skillLevel(id);
+      const pips = '◆'.repeat(lvl) + '◇'.repeat(def.max - lvl);
+      const can = p.skillPoints > 0 && lvl < def.max;
+      return `<div class="vc-row"><div><div class="nm">${def.name} <span class="vc-pips">${pips}</span></div>
+        <div class="ds">${def.desc}</div></div><span></span>
+        <button class="vc-btn" data-skill="${id}" ${can ? '' : 'disabled'}>+</button></div>`;
+    }).join('');
+    const pct = Math.round((p.xp / p.xpToNext()) * 100);
+    this.root.innerHTML = `<div class="vc-panel">
+      <div class="vc-head"><div class="vc-title">◈ PILOT — LEVEL ${p.xpLevel}</div>
+      <div class="vc-credits">${p.skillPoints} skill pts</div></div>
+      <div class="vc-sub">XP ${p.xp}/${p.xpToNext()} (${pct}%) — spend points to upgrade. [K]/[Esc] to close.</div>
+      ${rows}
+      <div class="vc-foot">Earn XP from kills, deliveries, bounties, quests, and trades.</div>
+    </div>`;
+    this.root.querySelectorAll('[data-skill]').forEach((b) => b.addEventListener('click', () => {
+      if (p.spendSkill(b.dataset.skill)) { this.render(); this.onChange && this.onChange(); }
+    }));
   }
 }
 
