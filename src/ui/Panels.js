@@ -4,7 +4,7 @@
 // can unlock input.
 import { UPGRADES, SKILLS } from '../game/Player.js';
 import { HULLS } from '../game/Hulls.js';
-import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById } from '../game/Market.js';
+import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById, refuel, FUEL_PRICE } from '../game/Market.js';
 
 const commodityName = (id) => commodityById(id)?.name || id;
 
@@ -266,6 +266,12 @@ export class Market extends BasePanel {
       <div class="vc-credits">${p.credits} cr</div></div>
       <div class="vc-sub">Buy low here, sell high elsewhere. Hold ${p.cargoUsed()}/${p.cargoCap()}. [E]/[Esc] to leave.</div>
       ${banner}
+      <div class="vc-row" style="grid-template-columns:1fr auto auto;gap:10px;border-color:#2a4a2a">
+        <div><div class="nm">Fuel <span class="vc-pips" style="color:#9effa0">${Math.round(p.fuel)}/${p.maxFuel}</span></div>
+        <div class="ds">${FUEL_PRICE} cr / unit</div></div>
+        <span></span>
+        <button class="vc-btn" data-refuel ${p.fuel < p.maxFuel && p.credits >= FUEL_PRICE ? '' : 'disabled'}>REFUEL</button>
+      </div>
       ${rows}
       <div class="vc-foot">Upgrade Cargo at the Trader to haul bigger loads.</div>
     </div>`;
@@ -276,5 +282,7 @@ export class Market extends BasePanel {
     this.root.querySelectorAll('[data-sell]').forEach((b) => b.addEventListener('click', () => {
       if (marketSell(p, this.world.id, b.dataset.sell, 1).ok) { this.render(); this.onChange && this.onChange(); }
     }));
+    const rf = this.root.querySelector('[data-refuel]');
+    if (rf) rf.addEventListener('click', () => { if (refuel(p).ok) { this.render(); this.onChange && this.onChange(); } });
   }
 }

@@ -126,6 +126,21 @@ export function sell(player, worldId, commodityId, qty = 1) {
   return { ok: true, gain };
 }
 
+export const FUEL_PRICE = 3; // credits per fuel unit
+
+// Refuel as much as the hold needs and the player can afford.
+export function refuel(player) {
+  const need = player.maxFuel - player.fuel;
+  if (need <= 0) return { ok: false, reason: 'Tank is full.' };
+  const affordable = Math.floor(player.credits / FUEL_PRICE);
+  const units = Math.min(need, affordable);
+  if (units <= 0) return { ok: false, reason: 'Not enough credits.' };
+  player.credits -= units * FUEL_PRICE;
+  player.addFuel(units);
+  player.save();
+  return { ok: true, units, cost: units * FUEL_PRICE };
+}
+
 // Suggest the best single-good trade route from a world (for flavor / hints).
 export function bestRouteFrom(worldId, worlds) {
   let best = null;

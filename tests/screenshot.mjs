@@ -246,7 +246,15 @@ async function main() {
     console.log(`› system map drawn: ${sysMapDrawn}`);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass2-starmap.png') });
     console.log('› screenshot → pass2-starmap.png');
-    await page.keyboard.press('m'); // close
+    // #10 fuel: a fast-travel jump consumes fuel (select also closes the map)
+    const jump = await page.evaluate(() => {
+      const p = window.__VC__.player;
+      const before = p.fuel;
+      window.__VC__.starMap.select(2); // jump to Cryo Station
+      return { before, after: p.fuel };
+    });
+    if (!(jump.after < jump.before)) errors.push('jump did not consume fuel');
+    console.log(`› jump fuel: ${jump.before}→${jump.after}`);
     await sleep(200);
 
     // Pass 2: approach prompt fires near a world
@@ -411,6 +419,17 @@ async function main() {
     if (!(trade.credits < creditsPreTrade)) errors.push('market buy did not deduct credits');
     if (trade.cargo < 1) errors.push('market buy did not add cargo');
     console.log(`› bought cargo → hold ${trade.cargo}, credits ${creditsPreTrade}→${trade.credits}`);
+    // #10 refuel: drain fuel then refuel at the market
+    const fuelTrade = await page.evaluate(() => {
+      const p = window.__VC__.player;
+      p.fuel = 50; p.credits += 1000;
+      const before = p.fuel;
+      const r = window.__VC__.market.root.querySelector('[data-refuel]');
+      if (r) r.click();
+      return { before, after: p.fuel, max: p.maxFuel };
+    });
+    if (!(fuelTrade.after > fuelTrade.before)) errors.push('refuel did not add fuel');
+    console.log(`› refuel: fuel ${fuelTrade.before}→${fuelTrade.after}/${fuelTrade.max}`);
     await page.keyboard.press('e'); // close
     await page.waitForFunction(() => window.__VC__.market.isOpen === false, { timeout: 6000 }).catch(() => {});
 

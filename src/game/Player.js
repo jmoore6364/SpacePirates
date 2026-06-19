@@ -24,7 +24,12 @@ const DEFAULTS = () => ({
   skills: { piloting: 0, gunnery: 0, trading: 0, engineering: 0 },
   hull: 'corsair',
   hullsOwned: ['corsair'],
+  fuel: 100,
+  maxFuel: 100,
 });
+
+// Fuel a fast-travel jump costs, by travel distance (manual flight is free).
+export const fuelCost = (distance) => Math.max(1, Math.ceil(distance / 55));
 
 // Skill tree (data-driven). Each level adds a flat perk to a derived stat.
 export const SKILLS = {
@@ -57,6 +62,7 @@ export class Player {
         cargo: this.cargo, questState: this.questState,
         xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
         hull: this.hull, hullsOwned: this.hullsOwned,
+        fuel: this.fuel, maxFuel: this.maxFuel,
       }));
     } catch { /* storage full / disabled — ignore */ }
   }
@@ -103,6 +109,11 @@ export class Player {
 
   // Trade margin bonus from the Trading skill (0..0.15).
   tradeBonus() { return this.skillLevel('trading') * 0.03; }
+
+  // --- fuel ---
+  canJump(cost) { return this.fuel >= cost; }
+  spendFuel(n) { this.fuel = Math.max(0, this.fuel - n); this.save(); }
+  addFuel(n) { this.fuel = Math.min(this.maxFuel, this.fuel + n); this.save(); }
 
   // --- ship hulls ---
   activeHull() { return hullById(this.hull); }

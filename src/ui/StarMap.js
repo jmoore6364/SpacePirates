@@ -2,6 +2,8 @@
 // Open with M; pick a destination by number key or click to fast-travel. The map
 // plots worlds to scale with the player, the sun, mission/quest destinations, and
 // live market events. Travel is delegated via onTravel(worldId). See issue #6.
+import { fuelCost } from '../game/Player.js';
+
 const SUN = [-1500, -1200]; // sun x,z (matches SpaceScene)
 
 export class StarMap {
@@ -37,24 +39,30 @@ export class StarMap {
     const events = info.events || [];
     const eventBy = new Map(events.map((e) => [e.world, e]));
 
+    const fuel = info.fuel != null ? info.fuel : Infinity;
+    this.costs = [];
+    this.fuel = fuel;
     this.list.innerHTML = '';
     worlds.forEach((w, idx) => {
       const dx = shipPos.x - w.position[0];
       const dy = shipPos.y - w.position[1];
       const dz = shipPos.z - w.position[2];
       const dist = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
+      const cost = fuelCost(dist);
+      this.costs[idx] = cost;
+      const afford = fuel >= cost;
       const tags = [];
       if (missionDest.has(w.id)) tags.push('<span class="sm-flag mis">◇ job</span>');
       const ev = eventBy.get(w.id);
       if (ev) tags.push(`<span class="sm-flag ev">${ev.kind === 'shortage' ? '▲' : '▼'} ${ev.kind}</span>`);
       const li = document.createElement('li');
-      li.className = 'sm-item';
+      li.className = 'sm-item' + (afford ? '' : ' disabled');
       li.innerHTML = `
         <span class="sm-key">${idx + 1}</span>
         <span class="sm-name">${w.name}</span>
         <span class="sm-theme">${w.theme} ${tags.join(' ')}</span>
-        <span class="sm-dist">${dist} u</span>`;
-      li.addEventListener('click', () => this.select(idx));
+        <span class="sm-dist">${dist} u · <span class="${afford ? 'sm-fuel' : 'sm-nofuel'}">⛽${cost}</span></span>`;
+      if (afford) li.addEventListener('click', () => this.select(idx));
       this.list.appendChild(li);
     });
 
@@ -117,6 +125,7 @@ export class StarMap {
   select(idx) {
     const w = this.worlds[idx];
     if (!w) return;
+    if (this.fuel != null && this.costs && this.fuel < this.costs[idx]) return; // can't afford the jump
     this.onTravel(w.id);
     this.close();
   }
@@ -155,6 +164,10 @@ function injectStyles() {
     #starmap .sm-name { font-size: 16px; color: #eaf6ff; }
     #starmap .sm-theme { font-size: 12px; opacity: 0.6; }
     #starmap .sm-dist { font-size: 13px; color: #9fe7ff; opacity: 0.85; }
+    #starmap .sm-fuel { color: #9effa0; }
+    #starmap .sm-nofuel { color: #ff6a6a; }
+    #starmap .sm-item.disabled { opacity: 0.4; cursor: default; }
+    #starmap .sm-item.disabled:hover { background: none; border-color: transparent; }
     #starmap .sm-flag { font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
     #starmap .sm-flag.mis { background: #14401f; color: #9effa0; }
     #starmap .sm-flag.ev { background: #3a2e10; color: #ffd24a; }

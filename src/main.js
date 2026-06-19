@@ -14,6 +14,7 @@ import { MissionLog, generateOffers } from './game/Missions.js';
 import { QuestLog, questById } from './game/Quests.js';
 import { AudioManager } from './systems/Audio.js';
 import { tickMarket, commodityById, activeEvents } from './game/Market.js';
+import { fuelCost } from './game/Player.js';
 import { clamp } from './util/math.js';
 
 const clamp01 = (x) => clamp(x, 0, 1);
@@ -143,11 +144,20 @@ function enterSpace(worldId) {
 const starMap = new StarMap({
   onTravel: (worldId) => {
     if (!space) return;
+    const w = WORLDS.find((x) => x.id === worldId);
+    const dist = Math.hypot(space.ship.position.x - w.position[0], space.ship.position.y - w.position[1], space.ship.position.z - w.position[2]);
+    const cost = fuelCost(dist);
+    if (!player.canJump(cost)) {
+      space.inputLocked = false; scenes.mode = Mode.SPACE;
+      toast(`Not enough fuel for that jump (need ${cost}). Fly there manually or refuel.`);
+      return;
+    }
+    player.spendFuel(cost);
     space.inputLocked = false;
     space.travelTo(worldId);
     scenes.mode = Mode.SPACE;
     audio.warp();
-    toast(`Warping to ${WORLDS.find((w) => w.id === worldId)?.name}…`);
+    toast(`Warping to ${w.name}… (−${cost} fuel)`);
   },
 });
 
@@ -287,6 +297,7 @@ window.addEventListener('keydown', (e) => {
           shipForward: space.ship.forward(),
           missionDest: dest,
           events: activeEvents(),
+          fuel: player.fuel,
         });
         space.inputLocked = true; scenes.mode = Mode.MAP;
       }
@@ -528,6 +539,7 @@ function renderHud() {
       el.combat.innerHTML =
         `<div class="sh">SHD [${bar(c.shield, c.maxShield)}] ${Math.round(c.shield)}</div>` +
         `<div class="hl">HUL [${bar(c.hull, c.maxHull)}] ${Math.round(c.hull)}</div>` +
+        `<div style="color:#9effa0">FUE [${bar(player.fuel, player.maxFuel)}] ${Math.round(player.fuel)}</div>` +
         `<div class="wanted">WANTED ${stars}</div>` +
         (c.enemies ? `<div class="hl">⚠ ${c.enemies} hostile${c.enemies > 1 ? 's' : ''}</div>` : '');
     }
