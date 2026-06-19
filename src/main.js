@@ -9,6 +9,9 @@ import { Shop, MissionBoard } from './ui/Panels.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
+import { clamp } from './util/math.js';
+
+const clamp01 = (x) => clamp(x, 0, 1);
 
 const container = document.getElementById('app');
 const renderer = new Renderer(container);
@@ -23,6 +26,7 @@ const el = {
   approach: document.getElementById('hud-approach'),
   toast: document.getElementById('hud-toast'),
   credits: document.getElementById('hud-credits'),
+  combat: document.getElementById('hud-combat'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -40,6 +44,10 @@ const missionBoard = new MissionBoard({ onClose: () => { panel = null; if (surfa
 
 function enterSpace(worldId) {
   space = new SpaceScene(input);
+  space.onEvent = (e) => {
+    if (e.type === 'kill') toast(`Target destroyed — bounty +${e.bounty} cr`);
+    else if (e.type === 'destroyed') toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`);
+  };
   scenes.switchTo(Mode.SPACE, space);
   if (worldId) space.travelTo(worldId);
   surface = null;
@@ -159,6 +167,7 @@ function renderHud() {
   if (h.onFoot) {
     el.throttle.textContent = `◈ ${h.world.name}`;
     el.speed.textContent = h.world.theme;
+    el.combat.innerHTML = '';
     if (h.interact) {
       el.approach.innerHTML = `▸ Press <b>E</b> — ${h.interact.label}`;
       el.approach.classList.add('show');
@@ -174,6 +183,21 @@ function renderHud() {
     const bars = Math.round(h.throttle * 16);
     el.throttle.textContent = `THR [${'█'.repeat(bars)}${'·'.repeat(16 - bars)}] ${pct}%`;
     el.speed.textContent = `SPD ${Math.round(h.speed)} u/s`;
+
+    const c = h.combat;
+    if (c) {
+      const bar = (v, max, n = 10) => {
+        const k = Math.round(clamp01(v / max) * n);
+        return '█'.repeat(k) + '·'.repeat(n - k);
+      };
+      const stars = '★'.repeat(c.wanted) + '☆'.repeat(5 - c.wanted);
+      el.combat.innerHTML =
+        `<div class="sh">SHD [${bar(c.shield, c.maxShield)}] ${Math.round(c.shield)}</div>` +
+        `<div class="hl">HUL [${bar(c.hull, c.maxHull)}] ${Math.round(c.hull)}</div>` +
+        `<div class="wanted">WANTED ${stars}</div>` +
+        (c.enemies ? `<div class="hl">⚠ ${c.enemies} hostile${c.enemies > 1 ? 's' : ''}</div>` : '');
+    }
+
     if (h.approach && !starMap.isOpen) {
       el.approach.innerHTML =
         `▸ APPROACH: <b>${h.approach.world.name}</b> — press <b>F</b> to land` +

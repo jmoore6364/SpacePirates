@@ -7,6 +7,7 @@ import { ChaseCamera } from '../core/ChaseCamera.js';
 import { makeStarfield, makePlanet, makeSun } from './props.js';
 import { WORLDS } from '../world/Worlds.js';
 import { player } from '../game/Player.js';
+import { Combat } from '../systems/Combat.js';
 
 export class SpaceScene {
   constructor(input) {
@@ -33,12 +34,20 @@ export class SpaceScene {
     this.ship.maxSpeed = player.stats().maxSpeed; // apply engine upgrades
     this.scene.add(this.ship.object);
 
+    this.onEvent = null; // main sets this for toasts / reactions
+    this.combat = new Combat(this.scene, this.ship, input, {
+      onKill: (bounty) => this._emit({ type: 'kill', bounty }),
+      onDestroyed: (penalty) => { this.travelTo('neon-haven'); this._emit({ type: 'destroyed', penalty }); },
+    });
+
     this.chase = null;
     this._enginePulse = 0;
     this._tmp = new THREE.Vector3();
     this.approach = null; // { world, dist } when near a world
     this.hud = {};
   }
+
+  _emit(e) { if (this.onEvent) this.onEvent(e); }
 
   onEnter(renderer) {
     this.chase = new ChaseCamera(renderer.camera);
@@ -107,6 +116,7 @@ export class SpaceScene {
     }
 
     this._updateApproach();
+    this.combat.update(dt);
 
     const speed01 = this.ship.speed / this.ship.maxSpeed;
     if (this.chase) this.chase.update(dt, this.ship.object, speed01);
@@ -116,6 +126,7 @@ export class SpaceScene {
       speed: this.ship.speed,
       maxSpeed: this.ship.maxSpeed,
       approach: this.approach,
+      combat: this.combat.hudData(),
     };
   }
 

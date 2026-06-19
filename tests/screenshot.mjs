@@ -112,6 +112,38 @@ async function main() {
       ['Space', 'ArrowLeft', 'KeyQ'].forEach((c) => i.release(c));
     });
 
+    // Pass 5: combat — halt, place a target dead ahead, open fire
+    await page.evaluate(() => {
+      const s = window.__VC__.space;
+      const c = s.combat;
+      s.ship.throttle = 0;
+      s.ship.velocity.set(0, 0, 0);
+      c.enemies.forEach((e) => s.scene.remove(e.mesh));
+      c.enemies = [];
+      c._spawnCd = 999; // deterministic: one target, no auto-waves mid-test
+      const f = s.ship.forward();
+      const p = s.ship.position.clone().addScaledVector(f, 120);
+      c._spawnEnemy(p);
+    });
+    const kills0 = await page.evaluate(() => window.__VC__.space.combat.kills);
+    await page.evaluate(() => window.__VC__.input.press('KeyJ'));
+    await page.waitForFunction((k) => window.__VC__.space.combat.kills > k, kills0, { timeout: 8000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass5-combat.png') });
+    await page.evaluate(() => window.__VC__.input.release('KeyJ'));
+    const combat = await page.evaluate(() => {
+      const c = window.__VC__.space.combat;
+      return { kills: c.kills, wanted: c.wanted, shield: Math.round(c.shield), hull: Math.round(c.hull) };
+    });
+    console.log(`› combat: kills ${kills0}→${combat.kills}, wanted ${combat.wanted}, shield ${combat.shield}, hull ${combat.hull}`);
+    if (combat.kills <= kills0) errors.push('combat: fired but destroyed no target');
+    console.log('› screenshot → pass5-combat.png');
+    // clear the field + heal so combat doesn't disrupt later scenes
+    await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat;
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = [];
+      c.shield = c.maxShield; c.hull = c.maxHull; c.wanted = 0; c.kills = 0;
+    });
+
     // Pass 2: star map opens
     await page.keyboard.press('m');
     await sleep(400);
@@ -214,9 +246,9 @@ async function main() {
 
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });
-    await sleep(200);
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.nearShip === true, { timeout: 5000 });
     await page.keyboard.press('t');
-    await sleep(1200);
+    await page.waitForFunction(() => window.__VC__.scenes.mode === 'SPACE', { timeout: 5000 }).catch(() => {});
     const mode2 = await page.evaluate(() => window.__VC__.scenes.mode);
     if (mode2 !== 'SPACE') errors.push(`did not take off (mode=${mode2})`);
     console.log(`› takeoff → mode=${mode2}`);
