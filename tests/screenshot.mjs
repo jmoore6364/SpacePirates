@@ -243,6 +243,23 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
     console.log('› screenshot → pass3-walk.png');
 
+    // #1 Terrain: plaza is flat, terrain rolls away from it, character grounds to it
+    const terr = await page.evaluate(() => {
+      const s = window.__VC__.surface; const c = s.character;
+      c.position.x = 110; c.position.z = 110; // out on the open terrain
+      return { plaza: +s.heightAt(0, 0).toFixed(3), far: +s.heightAt(110, 110).toFixed(3) };
+    });
+    await sleep(150); // let the character settle onto the terrain
+    const grounded = await page.evaluate(() => {
+      const s = window.__VC__.surface; const c = s.character;
+      return { y: +c.position.y.toFixed(2), expect: +s.heightAt(c.position.x, c.position.z).toFixed(2) };
+    });
+    console.log(`› terrain: plaza=${terr.plaza} far=${terr.far} charY=${grounded.y} (expect ~${grounded.expect})`);
+    if (Math.abs(terr.plaza) > 0.05) errors.push(`plaza not flat (${terr.plaza})`);
+    if (Math.abs(grounded.y - grounded.expect) > 0.45) errors.push('character not grounded to terrain');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-terrain.png') });
+    console.log('› screenshot → pass1-terrain.png');
+
     // On-foot blaster combat: spawn an enforcer in front and gun it down
     await page.evaluate(() => {
       const s = window.__VC__.surface; const g = s.ground; const c = s.character;

@@ -12,6 +12,7 @@ export class Character {
     this._bob = 0;
     this._vel = new THREE.Vector3();
     this.moving = false;
+    this.groundSampler = null; // (x,z) => terrain height; set by the scene
   }
 
   get position() { return this.object.position; }
@@ -44,9 +45,9 @@ export class Character {
       this._bob = lerp(this._bob, 0, clamp(dt * 8, 0, 1));
     }
 
-    // keep on ground with a little walk bob
-    this.position.y = Math.abs(Math.sin(this._bob)) * 0.25;
-    // bob the body mesh, not the root, so shadow/feet stay grounded
+    // follow the terrain with a little walk bob on top
+    const groundY = this.groundSampler ? this.groundSampler(this.position.x, this.position.z) : 0;
+    this.position.y = groundY + Math.abs(Math.sin(this._bob)) * 0.25;
   }
 
   _resolveCollision(next, colliders) {

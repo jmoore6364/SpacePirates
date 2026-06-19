@@ -12,12 +12,13 @@ const CHEST = 1.6;
 const HP_REGEN = 6; // per second after a lull
 
 export class GroundCombat {
-  constructor(scene, character, input, { onEvent, spawn } = {}) {
+  constructor(scene, character, input, { onEvent, spawn, groundY } = {}) {
     this.scene = scene;
     this.character = character;
     this.input = input;
     this.onEvent = onEvent || (() => {});
     this.spawnPoint = spawn || new THREE.Vector3(0, 0, 16);
+    this.groundY = groundY || (() => 0);
 
     this.maxHp = 100;
     this.hp = 100;
@@ -46,6 +47,7 @@ export class GroundCombat {
   spawnEnforcer(pos) {
     const mesh = buildEnforcer();
     mesh.position.copy(pos);
+    mesh.position.y = this.groundY(pos.x, pos.z);
     this.scene.add(mesh);
     this.enemies.push({ mesh, hp: 40, cd: 1 + Math.random() * 1.5 });
   }
@@ -68,7 +70,8 @@ export class GroundCombat {
     this._fireCd = 0.22;
     const h = this.character.heading;
     const dir = this._tmp.set(Math.sin(h), 0, Math.cos(h)).normalize();
-    const start = this.character.position.clone().setY(CHEST).addScaledVector(dir, 1.4);
+    const cp = this.character.position;
+    const start = cp.clone().setY(this.groundY(cp.x, cp.z) + CHEST).addScaledVector(dir, 1.4);
     this._spawnBolt(start, dir.clone(), false, player.stats().weapon);
     this.onEvent({ type: 'blaster' });
   }
@@ -94,14 +97,16 @@ export class GroundCombat {
       const ideal = 16;
       if (dist > ideal + 2) e.mesh.position.addScaledVector(to, 11 * dt);
       else if (dist < ideal - 2) e.mesh.position.addScaledVector(to, -8 * dt);
-      e.mesh.position.y = 0;
+      e.mesh.position.y = this.groundY(e.mesh.position.x, e.mesh.position.z);
       e.mesh.rotation.y = Math.atan2(to.x, to.z);
 
       e.cd -= dt;
       if (dist < 60 && e.cd <= 0) {
         e.cd = 1.6 + Math.random();
-        const dir = this._tmp2.copy(p).setY(CHEST).sub(this._tmp.copy(e.mesh.position).setY(CHEST)).normalize();
-        this._spawnBolt(e.mesh.position.clone().setY(CHEST).addScaledVector(dir, 1.4), dir.clone(), true, 8);
+        const pChest = this.groundY(p.x, p.z) + CHEST;
+        const eChest = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
+        const dir = this._tmp2.copy(p).setY(pChest).sub(this._tmp.copy(e.mesh.position).setY(eChest)).normalize();
+        this._spawnBolt(e.mesh.position.clone().setY(eChest).addScaledVector(dir, 1.4), dir.clone(), true, 8);
       }
     }
   }
@@ -117,13 +122,14 @@ export class GroundCombat {
 
       let hit = false;
       if (b.hostile) {
-        if (segDistSq(this._tmp2.set(p.x, CHEST, p.z), from, to) < 2.2 * 2.2) {
+        if (segDistSq(this._tmp2.set(p.x, this.groundY(p.x, p.z) + CHEST, p.z), from, to) < 2.2 * 2.2) {
           this._damagePlayer(b.dmg);
           hit = true;
         }
       } else {
         for (const e of this.enemies) {
-          if (segDistSq(this._tmp2.set(e.mesh.position.x, CHEST, e.mesh.position.z), from, to) < 2.4 * 2.4) {
+          const ey = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
+          if (segDistSq(this._tmp2.set(e.mesh.position.x, ey, e.mesh.position.z), from, to) < 2.4 * 2.4) {
             e.hp -= b.dmg;
             hit = true;
             if (e.hp <= 0) this._killEnemy(e);

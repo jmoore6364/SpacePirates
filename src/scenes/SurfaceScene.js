@@ -30,17 +30,19 @@ export class SurfaceScene {
     const city = buildCity(world);
     this.scene.add(city.group);
     this.colliders = city.colliders;
+    this.heightAt = city.heightAt;
 
-    // landed ship on the pad
+    // landed ship on the pad (plaza is flat)
     this.parkedShip = new Ship();
     this.parkedShip.object.position.copy(city.padPosition).setY(1.4);
     this.parkedShip.object.rotation.set(-0.08, Math.PI * 0.85, 0);
     this.parkedShip.object.scale.setScalar(1.6);
     this.scene.add(this.parkedShip.object);
 
-    // character at the spawn point
+    // character at the spawn point, grounded to terrain
     this.character = new Character();
-    this.character.position.copy(city.spawn);
+    this.character.groundSampler = this.heightAt;
+    this.character.position.copy(city.spawn).setY(this.heightAt(city.spawn.x, city.spawn.z));
     this.character.heading = Math.PI; // face the city
     this.scene.add(this.character.object);
 
@@ -54,6 +56,7 @@ export class SurfaceScene {
     // on-foot blaster combat — enforcers come if you landed with heat on you
     this.ground = new GroundCombat(this.scene, this.character, input, {
       spawn: city.spawn.clone(),
+      groundY: this.heightAt,
       onEvent: (e) => { if (this.onEvent) this.onEvent(e); },
     });
     if (threat > 0) this.ground.spawnWave(Math.min(threat + 1, 6));
@@ -65,9 +68,10 @@ export class SurfaceScene {
   }
 
   _addVendor(id, label, pos, color) {
+    const gy = this.heightAt ? this.heightAt(pos.x, pos.z) : 0;
     const npc = makeNPC(color);
-    npc.position.copy(pos);
-    npc.lookAt(0, npc.position.y, 0);
+    npc.position.set(pos.x, gy, pos.z);
+    npc.lookAt(0, gy, 0);
     this.scene.add(npc);
 
     // glowing beacon pylon so the vendor reads from a distance
@@ -75,19 +79,19 @@ export class SurfaceScene {
       new THREE.CylinderGeometry(0.18, 0.18, 5, 8),
       new THREE.MeshBasicMaterial({ color }),
     );
-    pylon.position.set(pos.x, 2.5, pos.z);
+    pylon.position.set(pos.x, gy + 2.5, pos.z);
     this.scene.add(pylon);
     const orb = new THREE.Mesh(
       new THREE.SphereGeometry(0.5, 12, 12),
       new THREE.MeshBasicMaterial({ color }),
     );
-    orb.position.set(pos.x, 5.2, pos.z);
+    orb.position.set(pos.x, gy + 5.2, pos.z);
     this.scene.add(orb);
     const pl = new THREE.PointLight(color, 1.4, 30);
     pl.position.copy(orb.position);
     this.scene.add(pl);
 
-    this.interactables.push({ id, label, position: pos.clone(), orb });
+    this.interactables.push({ id, label, position: pos.clone(), orb, baseY: gy + 5.2 });
   }
 
   _addAmbientNPCs() {
@@ -97,10 +101,12 @@ export class SurfaceScene {
       const a = (i / 7) * Math.PI * 2;
       const rad = 26 + (i % 3) * 9;
       const npc = makeNPC(palette[i % palette.length]);
-      npc.position.set(Math.cos(a) * rad, 0, Math.sin(a) * rad - 30);
+      const nx = Math.cos(a) * rad, nz = Math.sin(a) * rad - 30;
+      const gy = this.heightAt ? this.heightAt(nx, nz) : 0;
+      npc.position.set(nx, gy, nz);
       npc.rotation.y = a;
       this.scene.add(npc);
-      this.ambient.push({ npc, base: npc.position.clone(), phase: i });
+      this.ambient.push({ npc, base: npc.position.clone(), phase: i, groundY: gy });
     }
   }
 
@@ -133,10 +139,10 @@ export class SurfaceScene {
     // vendor orbs bob; ambient NPCs sway
     this._npcPulse += dt;
     for (const it of this.interactables) {
-      it.orb.position.y = 5.2 + Math.sin(this._npcPulse * 2 + it.position.x) * 0.25;
+      it.orb.position.y = it.baseY + Math.sin(this._npcPulse * 2 + it.position.x) * 0.25;
     }
     for (const a of this.ambient) {
-      a.npc.position.y = Math.abs(Math.sin(this._npcPulse * 1.5 + a.phase)) * 0.12;
+      a.npc.position.y = a.groundY + Math.abs(Math.sin(this._npcPulse * 1.5 + a.phase)) * 0.12;
       a.npc.rotation.y += dt * 0.2;
     }
 
