@@ -338,6 +338,14 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
     console.log('› screenshot → pass3-walk.png');
 
+    // land mouse movement: cursor up = walk forward
+    const mb = await page.evaluate(() => { const c = window.__VC__.surface.character; window.__VC__.input.setMouse(0, -0.9); return { x: c.position.x, z: c.position.z }; });
+    await sleep(600);
+    const ma = await page.evaluate(() => { const c = window.__VC__.surface.character; window.__VC__.input.setMouse(0, 0); window.__VC__.input.mouse.active = false; return { x: c.position.x, z: c.position.z }; });
+    const md = Math.hypot(ma.x - mb.x, ma.z - mb.z);
+    if (md < 2) errors.push(`mouse did not move character on foot (${md.toFixed(1)})`);
+    console.log(`› land mouse move: ${md.toFixed(1)} units`);
+
     // #1 Terrain: plaza is flat, terrain rolls away from it, character grounds to it
     const terr = await page.evaluate(() => {
       const s = window.__VC__.surface; const c = s.character;

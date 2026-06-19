@@ -152,9 +152,10 @@ export class SurfaceScene {
     const tm = i.touchMove;
     const tf = tm && tm.active ? -tm.y : 0; // stick up = forward
     const ts = tm && tm.active ? tm.x : 0;
+    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0, y: 0 }; // mouse: up = forward
     return {
-      forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
-      strafe: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + ts),
+      forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf - ms.y),
+      strafe: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + ts + ms.x),
     };
   }
 
