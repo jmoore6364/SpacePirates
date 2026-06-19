@@ -23,7 +23,8 @@ export class Character {
     if (forward || strafe) {
       // camera-space basis on the ground plane (camera sits behind at camYaw)
       const cf = new THREE.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw));
-      const cr = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+      // screen-right relative to the camera-forward (was mirrored — D should go right)
+      const cr = new THREE.Vector3(-Math.cos(camYaw), 0, Math.sin(camYaw));
       dir.addScaledVector(cf, forward).addScaledVector(cr, strafe);
       if (dir.lengthSq() > 0) dir.normalize();
     }
