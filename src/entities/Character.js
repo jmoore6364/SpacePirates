@@ -1,7 +1,7 @@
 // On-foot 3rd-person character: a low-poly figure + a camera-relative walk
 // controller with simple AABB collision against city buildings and a walk bob.
 import { THREE } from '../renderer/Renderer.js';
-import { clamp, lerp, wrapAngle } from '../util/math.js';
+import { clamp, lerp } from '../util/math.js';
 
 export class Character {
   constructor() {
@@ -17,30 +17,28 @@ export class Character {
 
   get position() { return this.object.position; }
 
-  // move dir is built from input in camera space (forward/right unit vectors on ground).
-  update(dt, { forward = 0, strafe = 0 }, camYaw = 0, colliders = []) {
+  // 3rd-person aim controls: `yaw` is the look/heading the character faces (set by
+  // the scene from mouse/keys/touch turning); `forward` walks along that facing,
+  // `strafe` steps sideways. The character always faces `yaw` so it aims/shoots
+  // wherever you point.
+  update(dt, { forward = 0, strafe = 0 }, yaw = 0, colliders = []) {
+    this.heading = yaw;
+    this.object.rotation.y = yaw;
+
     const dir = new THREE.Vector3();
     if (forward || strafe) {
-      // camera-space basis on the ground plane (camera sits behind at camYaw)
-      const cf = new THREE.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw));
-      // screen-right relative to the camera-forward (was mirrored — D should go right)
-      const cr = new THREE.Vector3(-Math.cos(camYaw), 0, Math.sin(camYaw));
-      dir.addScaledVector(cf, forward).addScaledVector(cr, strafe);
+      const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));   // facing
+      const r = new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));  // screen-right
+      dir.addScaledVector(f, forward).addScaledVector(r, strafe);
       if (dir.lengthSq() > 0) dir.normalize();
     }
     this.moving = dir.lengthSq() > 0;
 
     if (this.moving) {
-      const targetHeading = Math.atan2(dir.x, dir.z);
-      // ease heading toward movement direction
-      this.heading += wrapAngle(targetHeading - this.heading) * clamp(dt * 10, 0, 1);
-      this.object.rotation.y = this.heading;
-
       const next = this.position.clone().addScaledVector(dir, this.speed * dt);
       this._resolveCollision(next, colliders);
       this.position.x = next.x;
       this.position.z = next.z;
-
       this._bob += dt * 10;
     } else {
       this._bob = lerp(this._bob, 0, clamp(dt * 8, 0, 1));

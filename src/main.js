@@ -536,7 +536,7 @@ function renderHud() {
       el.approach.innerHTML = `▸ At your ship — press <b>T</b> to take off`;
       el.approach.classList.add('show');
     } else {
-      el.approach.innerHTML = `<span class="lo">[WASD] walk · [E] interact at glowing vendors · [T] take off at ship</span>`;
+      el.approach.innerHTML = `<span class="lo">Mouse aim/move · [W/S] walk · [A/D] turn · [J/click] blaster · [E] interact · [T] take off</span>`;
       el.approach.classList.add('show');
     }
   } else {

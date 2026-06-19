@@ -67,6 +67,7 @@ export class SurfaceScene {
     this.character.groundSampler = this.heightAt;
     this.character.position.copy(city.spawn).setY(this.heightAt(city.spawn.x, city.spawn.z));
     this.character.heading = Math.PI; // face the city
+    this.lookYaw = Math.PI;           // free aim/look yaw (mouse/keys/touch turn it)
     this.character.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(this.character.object);
 
@@ -145,24 +146,29 @@ export class SurfaceScene {
     this.cam.update(0.016, this.character);
   }
 
-  readMove() {
+  // 3rd-person controls: forward/back walk, turn rotates the free look-yaw (so you
+  // can point anywhere), strafe steps sideways. Mouse: up/down walk, left/right turn.
+  // Touch stick: y walk, x turn. Keyboard: W/S walk, A/D turn, Q/E strafe.
+  readControls() {
     const i = this.input;
-    if (!i || this.inputLocked) return { forward: 0, strafe: 0 };
+    if (!i || this.inputLocked) return { forward: 0, turn: 0, strafe: 0 };
     const clampU = (v) => (v < -1 ? -1 : v > 1 ? 1 : v);
     const tm = i.touchMove;
-    const tf = tm && tm.active ? -tm.y : 0; // stick up = forward
-    const ts = tm && tm.active ? tm.x : 0;
-    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0, y: 0 }; // mouse: up = forward
+    const tf = tm && tm.active ? -tm.y : 0;
+    const tt = tm && tm.active ? tm.x : 0;
+    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0, y: 0 };
     return {
       forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf - ms.y),
-      strafe: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + ts + ms.x),
+      turn: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt + ms.x),
+      strafe: i.axis(['KeyQ'], ['KeyE']),
     };
   }
 
   update(dt) {
-    const move = this.readMove();
-    const yaw = this.cam ? this.cam.yaw : this.character.heading;
-    this.character.update(dt, move, yaw, this.colliders);
+    const c = this.readControls();
+    const TURN_RATE = 2.6; // rad/s at full deflection
+    this.lookYaw += c.turn * TURN_RATE * dt;
+    this.character.update(dt, { forward: c.forward, strafe: c.strafe }, this.lookYaw, this.colliders);
     if (this.cam) this.cam.update(dt, this.character);
 
     // parked-ship engine idle flicker
