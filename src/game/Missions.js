@@ -9,7 +9,8 @@ const CARGO = ['med-gel', 'reactor cores', 'spice crates', 'salvaged tech', 'con
 let _idCounter = 1;
 function nextId() { return `m${_idCounter++}`; }
 
-// Deterministic-enough offers per origin world, regenerated when first viewed.
+// Deterministic-enough offers per origin world, regenerated when first viewed:
+// a couple of delivery jobs plus a bounty hunt.
 export function generateOffers(fromWorldId, count = 3) {
   const others = WORLDS.filter((w) => w.id !== fromWorldId);
   const offers = [];
@@ -29,6 +30,17 @@ export function generateOffers(fromWorldId, count = 3) {
       title: `Deliver ${cargo} to ${to.name}`,
     });
   }
+  // one bounty contract
+  const target = 3 + (fromWorldId.length % 3);
+  offers.push({
+    id: nextId(),
+    type: 'bounty',
+    from: fromWorldId,
+    target,
+    progress: 0,
+    reward: 220 + target * 60,
+    title: `Bounty: destroy ${target} raiders`,
+  });
   return offers;
 }
 
@@ -59,13 +71,28 @@ export class MissionLog {
 
   // Call on arrival at a world; completes & pays any deliveries bound here.
   arriveAt(worldId) {
-    const done = this.active.filter((m) => m.to === worldId);
-    for (const m of done) {
-      this.player.addCredits(m.reward);
-      if (!this.player.completed.includes(m.id)) this.player.completed.push(m.id);
-    }
-    this.active = this.active.filter((m) => m.to !== worldId);
-    this.player.save();
+    const done = this.active.filter((m) => m.type === 'delivery' && m.to === worldId);
+    for (const m of done) this._complete(m);
+    this.active = this.active.filter((m) => !done.includes(m));
     return done; // list of completed missions (for toast/UI)
+  }
+
+  // Call on each enemy kill; advances bounty contracts and completes finished ones.
+  recordKill() {
+    const done = [];
+    for (const m of this.active) {
+      if (m.type !== 'bounty') continue;
+      m.progress = (m.progress || 0) + 1;
+      if (m.progress >= m.target) done.push(m);
+    }
+    for (const m of done) this._complete(m);
+    this.active = this.active.filter((m) => !done.includes(m));
+    return done;
+  }
+
+  _complete(m) {
+    this.player.addCredits(m.reward);
+    if (!this.player.completed.includes(m.id)) this.player.completed.push(m.id);
+    this.player.save();
   }
 }

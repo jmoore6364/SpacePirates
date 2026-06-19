@@ -14,6 +14,7 @@ const DEFAULTS = () => ({
   credits: 500,
   upgrades: { engine: 0, shields: 0, weapons: 0, cargo: 0, hull: 0 },
   completed: [],
+  cargo: {}, // { commodityId: qty }
 });
 
 export class Player {
@@ -35,7 +36,7 @@ export class Player {
     if (!this.store) return;
     try {
       this.store.setItem(SAVE_KEY, JSON.stringify({
-        credits: this.credits, upgrades: this.upgrades, completed: this.completed,
+        credits: this.credits, upgrades: this.upgrades, completed: this.completed, cargo: this.cargo,
       }));
     } catch { /* storage full / disabled — ignore */ }
   }
@@ -51,6 +52,12 @@ export class Player {
   }
 
   level(id) { return this.upgrades[id] || 0; }
+
+  // --- cargo hold ---
+  cargoCap() { return this.stats().cargo; }
+  cargoUsed() { return Object.values(this.cargo).reduce((a, q) => a + q, 0); }
+  cargoFree() { return Math.max(0, this.cargoCap() - this.cargoUsed()); }
+  cargoQty(id) { return this.cargo[id] || 0; }
 
   // Cost of the NEXT level, or null if maxed / unknown.
   costOf(id) {

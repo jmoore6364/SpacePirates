@@ -1,0 +1,85 @@
+// Renderer-agnostic trade economy. Each world prices commodities differently
+// (deterministic per world+good), so the core pirate loop is: buy cheap where a
+// good is plentiful, haul it, sell dear where it's scarce. Cargo space is the
+// constraint — making the Cargo upgrade matter.
+
+export const COMMODITIES = [
+  { id: 'water',    name: 'Water Ice',    base: 12,  legal: true },
+  { id: 'ore',      name: 'Raw Ore',      base: 28,  legal: true },
+  { id: 'parts',    name: 'Ship Parts',   base: 60,  legal: true },
+  { id: 'meds',     name: 'Medicine',     base: 95,  legal: true },
+  { id: 'tech',     name: 'Electronics',  base: 140, legal: true },
+  { id: 'spice',    name: 'Spice',        base: 210, legal: false }, // contraband, high value
+];
+
+export const commodityById = (id) => COMMODITIES.find((c) => c.id === id);
+
+function hash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+// Stable per-world demand factor in roughly [0.55, 1.45].
+function worldFactor(worldId, commodityId) {
+  const h = hash(`${worldId}:${commodityId}`);
+  return 0.55 + (h % 91) / 100;
+}
+
+// What the market pays you to SELL one unit here.
+export function sellPrice(worldId, commodityId) {
+  const c = commodityById(commodityId);
+  if (!c) return 0;
+  return Math.round(c.base * worldFactor(worldId, commodityId));
+}
+
+// What it costs to BUY one unit here (a margin above sell so same-world flipping
+// never profits — you must actually travel).
+export function buyPrice(worldId, commodityId) {
+  return Math.round(sellPrice(worldId, commodityId) * 1.12);
+}
+
+// Listing for a world's market UI.
+export function marketTable(worldId) {
+  return COMMODITIES.map((c) => ({
+    id: c.id, name: c.name, legal: c.legal,
+    buy: buyPrice(worldId, c.id),
+    sell: sellPrice(worldId, c.id),
+  }));
+}
+
+export function buy(player, worldId, commodityId, qty = 1) {
+  if (qty <= 0) return { ok: false, reason: 'Nothing to buy.' };
+  const cost = buyPrice(worldId, commodityId) * qty;
+  if (player.credits < cost) return { ok: false, reason: 'Not enough credits.' };
+  if (player.cargoFree() < qty) return { ok: false, reason: 'Cargo hold full.' };
+  player.credits -= cost;
+  player.cargo[commodityId] = player.cargoQty(commodityId) + qty;
+  player.save();
+  return { ok: true, cost };
+}
+
+export function sell(player, worldId, commodityId, qty = 1) {
+  const have = player.cargoQty(commodityId);
+  if (qty <= 0 || have < qty) return { ok: false, reason: 'You have none to sell.' };
+  const gain = sellPrice(worldId, commodityId) * qty;
+  player.credits += gain;
+  player.cargo[commodityId] = have - qty;
+  if (player.cargo[commodityId] <= 0) delete player.cargo[commodityId];
+  player.save();
+  return { ok: true, gain };
+}
+
+// Suggest the best single-good trade route from a world (for flavor / hints).
+export function bestRouteFrom(worldId, worlds) {
+  let best = null;
+  for (const c of COMMODITIES) {
+    const cost = buyPrice(worldId, c.id);
+    for (const w of worlds) {
+      if (w.id === worldId) continue;
+      const profit = sellPrice(w.id, c.id) - cost;
+      if (!best || profit > best.profit) best = { commodity: c.id, to: w.id, toName: w.name, profit };
+    }
+  }
+  return best;
+}

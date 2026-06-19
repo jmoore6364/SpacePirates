@@ -88,7 +88,7 @@ async function main() {
     }
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass6-title.png') });
     console.log('› screenshot → pass6-title.png');
-    await page.evaluate(() => window.__VC__.start(false)); // launch the game
+    await page.evaluate(() => window.__VC__.start(true)); // NEW GAME — clean state each run
     await sleep(400);
     const boot = await page.evaluate(() => ({
       started: window.__VC__.scenes.mode,
@@ -228,7 +228,7 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-shop.png') });
     console.log('› screenshot → pass4-shop.png');
     const creditsBefore = await page.evaluate(() => window.__VC__.player.credits);
-    await page.evaluate(() => document.querySelector('[data-buy="engine"]')?.click());
+    await page.evaluate(() => document.querySelector('#vc-shop [data-buy="engine"]')?.click());
     await sleep(150);
     const afterBuy = await page.evaluate(() => ({
       credits: window.__VC__.player.credits,
@@ -252,11 +252,36 @@ async function main() {
     if (!(await page.evaluate(() => window.__VC__.missionBoard.isOpen))) errors.push('mission board did not open');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-missions.png') });
     console.log('› screenshot → pass4-missions.png');
-    await page.evaluate(() => document.querySelector('[data-take]')?.click());
+    await page.evaluate(() => document.querySelector('#vc-missions [data-take]')?.click());
     await sleep(150);
     const active = await page.evaluate(() => window.__VC__.missionLog.active.length);
     if (active < 1) errors.push('mission was not accepted');
     console.log(`› accepted mission → ${active} active`);
+    await page.keyboard.press('e'); // close
+    await sleep(250);
+
+    // Trade: walk to the Market, buy a commodity (deepened economy)
+    await page.evaluate(() => {
+      const s = window.__VC__.surface;
+      const t = s.interactables.find((i) => i.id === 'market');
+      s.character.position.set(t.position.x, 0, t.position.z + 4);
+    });
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'market', { timeout: 5000 });
+    await page.keyboard.press('e');
+    await sleep(300);
+    if (!(await page.evaluate(() => window.__VC__.market.isOpen))) errors.push('market did not open');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass7-market.png') });
+    console.log('› screenshot → pass7-market.png');
+    const creditsPreTrade = await page.evaluate(() => window.__VC__.player.credits);
+    await page.evaluate(() => document.querySelector('#vc-market [data-buy]')?.click());
+    await sleep(150);
+    const trade = await page.evaluate(() => ({
+      credits: window.__VC__.player.credits,
+      cargo: window.__VC__.player.cargoUsed(),
+    }));
+    if (!(trade.credits < creditsPreTrade)) errors.push('market buy did not deduct credits');
+    if (trade.cargo < 1) errors.push('market buy did not add cargo');
+    console.log(`› bought cargo → hold ${trade.cargo}, credits ${creditsPreTrade}→${trade.credits}`);
     await page.keyboard.press('e'); // close
     await sleep(250);
 

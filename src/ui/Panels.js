@@ -1,7 +1,9 @@
-// DOM overlay panels for on-foot interactions: the Trader (ship upgrades) and the
-// Mission Board (accept delivery jobs). Both read/write the shared player + mission
-// log and call onClose so the scene can unlock input.
+// DOM overlay panels for on-foot interactions: the Trader (ship upgrades), the
+// Mission Board (delivery + bounty jobs), and the Market (commodity trading).
+// All read/write the shared player + mission log and call onClose so the scene
+// can unlock input.
 import { UPGRADES } from '../game/Player.js';
+import { marketTable, buy as marketBuy, sell as marketSell } from '../game/Market.js';
 
 function injectStyles() {
   if (document.getElementById('vc-panel-style')) return;
@@ -106,9 +108,13 @@ export class MissionBoard extends BasePanel {
   }
 
   render() {
+    const sub = (m) => m.type === 'bounty'
+      ? `Bounty hunt · progress ${m.progress || 0}/${m.target}`
+      : `Cargo: ${m.cargo} · deliver on arrival`;
+
     const active = this.log.active.map((m) =>
       `<div class="vc-row"><div><div class="nm">${m.title}</div>
-       <div class="ds">Reward ${m.reward} cr · deliver on arrival</div></div>
+       <div class="ds">Reward ${m.reward} cr · ${sub(m)}</div></div>
        <span class="vc-tag">ACTIVE</span><span></span></div>`).join('') ||
       `<div class="vc-empty">No active jobs.</div>`;
 
@@ -117,7 +123,7 @@ export class MissionBoard extends BasePanel {
       const full = this.log.active.length >= 4;
       const disabled = taken || full;
       return `<div class="vc-row"><div><div class="nm">${m.title}</div>
-        <div class="ds">Cargo: ${m.cargo}</div></div>
+        <div class="ds">${sub(m)}</div></div>
         <div class="vc-credits">${m.reward} cr</div>
         <button class="vc-btn" data-take="${m.id}" ${disabled ? 'disabled' : ''}>
           ${taken ? 'TAKEN' : 'ACCEPT'}</button></div>`;
@@ -136,5 +142,50 @@ export class MissionBoard extends BasePanel {
         if (m && this.log.accept(m).ok) { this.render(); this.onChange && this.onChange(); }
       });
     });
+  }
+}
+
+export class Market extends BasePanel {
+  constructor(opts) { super('vc-market', opts); }
+
+  open(player, world) {
+    this.player = player;
+    this.world = world;
+    this.isOpen = true;
+    this.root.classList.add('open');
+    this.render();
+  }
+
+  render() {
+    const p = this.player;
+    const table = marketTable(this.world.id);
+    const rows = table.map((c) => {
+      const have = p.cargoQty(c.id);
+      const canBuy = p.credits >= c.buy && p.cargoFree() > 0;
+      const flag = c.legal ? '' : ' <span class="vc-tag" style="background:#5a1b2e;color:#ff9bb0">illegal</span>';
+      return `<div class="vc-row" style="grid-template-columns:1fr auto auto auto auto;gap:10px">
+        <div><div class="nm">${c.name}${flag}</div>
+        <div class="ds">hold: ${have}</div></div>
+        <div class="vc-credits">buy ${c.buy}</div>
+        <button class="vc-btn" data-buy="${c.id}" ${canBuy ? '' : 'disabled'}>BUY</button>
+        <div class="sh" style="color:#9fe7ff">sell ${c.sell}</div>
+        <button class="vc-btn" data-sell="${c.id}" ${have > 0 ? '' : 'disabled'}>SELL</button>
+      </div>`;
+    }).join('');
+
+    this.root.innerHTML = `<div class="vc-panel">
+      <div class="vc-head"><div class="vc-title">◈ ${this.world.name.toUpperCase()} MARKET</div>
+      <div class="vc-credits">${p.credits} cr</div></div>
+      <div class="vc-sub">Buy low here, sell high elsewhere. Hold ${p.cargoUsed()}/${p.cargoCap()}. [E]/[Esc] to leave.</div>
+      ${rows}
+      <div class="vc-foot">Upgrade Cargo at the Trader to haul bigger loads.</div>
+    </div>`;
+
+    this.root.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      if (marketBuy(p, this.world.id, b.dataset.buy, 1).ok) { this.render(); this.onChange && this.onChange(); }
+    }));
+    this.root.querySelectorAll('[data-sell]').forEach((b) => b.addEventListener('click', () => {
+      if (marketSell(p, this.world.id, b.dataset.sell, 1).ok) { this.render(); this.onChange && this.onChange(); }
+    }));
   }
 }

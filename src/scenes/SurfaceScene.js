@@ -45,6 +45,7 @@ export class SurfaceScene {
     this.interactables = [];
     this._addVendor('shop', 'Trader', new THREE.Vector3(22, 0, -2), 0xffe6a0);
     this._addVendor('missions', 'Mission Board', new THREE.Vector3(-22, 0, -6), 0x66e0ff);
+    this._addVendor('market', 'Market', new THREE.Vector3(0, 0, -26), 0xff5db1);
     this._addAmbientNPCs();
 
     this.cam = null;

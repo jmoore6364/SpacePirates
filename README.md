@@ -35,11 +35,18 @@ npm run preview
 
 ## The loop
 
-Fly → approach a world → land → walk the city → trade upgrades / take delivery
-missions → take off → fight or fast-travel → repeat. Delivery jobs pay out when
-you land at their destination. Kills earn bounties and raise your **wanted level**,
-which spawns more hunters. Credits, upgrades, completed jobs, and settings are
-saved to `localStorage`.
+Fly → approach a world → land → walk the city → trade goods, buy upgrades, take
+jobs → take off → fight or fast-travel → repeat.
+
+- **Trade:** each world's **Market** prices commodities differently — buy low,
+  haul it (cargo hold capacity = your Cargo upgrade), sell high elsewhere. Spice is
+  contraband and lucrative.
+- **Missions:** delivery jobs pay out when you land at their destination; bounty
+  contracts pay out once you've destroyed enough raiders.
+- **Danger:** kills earn bounties and raise your **wanted level**, which spawns
+  more hunters.
+
+Credits, upgrades, cargo, completed jobs, and settings are saved to `localStorage`.
 
 ## Worlds
 

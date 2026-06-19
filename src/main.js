@@ -5,7 +5,7 @@ import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
-import { Shop, MissionBoard } from './ui/Panels.js';
+import { Shop, MissionBoard, Market } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
@@ -54,8 +54,10 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
 }
 
-const shop = new Shop({ onClose: () => { panel = null; if (surface) surface.inputLocked = false; } });
-const missionBoard = new MissionBoard({ onClose: () => { panel = null; if (surface) surface.inputLocked = false; } });
+const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; };
+const shop = new Shop({ onClose: closePanel });
+const missionBoard = new MissionBoard({ onClose: closePanel });
+const market = new Market({ onClose: closePanel });
 
 function enterSpace(worldId) {
   space = new SpaceScene(input);
@@ -65,7 +67,17 @@ function enterSpace(worldId) {
       case 'fire': audio.laser(); break;
       case 'hit': break;
       case 'playerHit': audio.hit(); break;
-      case 'kill': audio.explosion(); toast(`Target destroyed — bounty +${e.bounty} cr`); break;
+      case 'kill': {
+        audio.explosion();
+        const done = missionLog.recordKill();
+        if (done.length) {
+          const sum = done.reduce((a, m) => a + m.reward, 0);
+          toast(`Bounty contract complete — +${sum} cr`);
+        } else {
+          toast(`Target destroyed — bounty +${e.bounty} cr`);
+        }
+        break;
+      }
       case 'destroyed': audio.explosion(); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
     }
   };
@@ -115,6 +127,7 @@ function openInteract(world, kind) {
   surface.inputLocked = true;
   audio.blip();
   if (kind === 'shop') { shop.open(player); panel = shop; }
+  else if (kind === 'market') { market.open(player, world); panel = market; }
   else {
     const offers = offersByWorld[world.id] || (offersByWorld[world.id] = generateOffers(world.id));
     missionBoard.open(player, missionLog, offers);
@@ -256,6 +269,7 @@ renderer.setBloom(settings.bloom);
 audio.setMuted(settings.muted);
 shop.onChange = () => audio.blip();
 missionBoard.onChange = () => audio.blip();
+market.onChange = () => audio.blip();
 
 enterSpace();        // live backdrop behind the title
 loop.start();
@@ -283,7 +297,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen,
-  player, missionLog, shop, missionBoard,
+  player, missionLog, shop, missionBoard, market,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },
