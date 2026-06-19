@@ -34,6 +34,7 @@ const el = {
   quest: document.getElementById('hud-quest'),
   radar: document.getElementById('radar'),
   markers: document.getElementById('markers'),
+  minimap: document.getElementById('minimap'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -377,6 +378,36 @@ function updateMarkers() {
   drawMarkers(targets);
 }
 
+// --- surface minimap (top-down, north-up) ---
+const miniCtx = el.minimap.getContext('2d');
+const TAU = Math.PI * 2;
+function drawMinimap(s) {
+  const W = el.minimap.width, H = el.minimap.height, ctx = miniCtx;
+  const R = 130, sx = W / (2 * R), sz = H / (2 * R), cx = W / 2, cy = H / 2;
+  const px = (x) => cx + x * sx, py = (z) => cy + z * sz;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(8,16,28,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(80,200,255,0.45)'; ctx.lineWidth = 1.5; ctx.strokeRect(1, 1, W - 2, H - 2);
+
+  ctx.fillStyle = 'rgba(120,150,200,0.32)';
+  for (const c of s.colliders || []) ctx.fillRect(px(c.min.x), py(c.min.z), (c.max.x - c.min.x) * sx, (c.max.z - c.min.z) * sz);
+
+  ctx.strokeStyle = '#66e0ff'; ctx.beginPath(); ctx.arc(px(0), py(0), 11 * sx, 0, TAU); ctx.stroke();
+
+  for (const a of s.ambient || []) { ctx.fillStyle = 'rgba(180,180,205,0.55)'; ctx.beginPath(); ctx.arc(px(a.npc.position.x), py(a.npc.position.z), 1.6, 0, TAU); ctx.fill(); }
+  for (const it of s.interactables || []) { ctx.fillStyle = hex(it.color); ctx.beginPath(); ctx.arc(px(it.position.x), py(it.position.z), 3, 0, TAU); ctx.fill(); }
+  for (const e of (s.ground?.enemies || [])) { ctx.fillStyle = '#ff5b6e'; ctx.beginPath(); ctx.arc(px(e.mesh.position.x), py(e.mesh.position.z), 2.5, 0, TAU); ctx.fill(); }
+
+  // player arrow (forward = (sin h, cos h))
+  const c = s.character, h = c.heading, fx = Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h);
+  const ax = px(c.position.x), ay = py(c.position.z);
+  ctx.fillStyle = '#dff1ff'; ctx.beginPath();
+  ctx.moveTo(ax + fx * 6, ay + fz * 6);
+  ctx.lineTo(ax - fx * 4 + rx * 4, ay - fz * 4 + rz * 4);
+  ctx.lineTo(ax - fx * 4 - rx * 4, ay - fz * 4 - rz * 4);
+  ctx.closePath(); ctx.fill();
+}
+
 // --- HUD ---
 let hudTimer = 0;
 function renderHud() {
@@ -392,6 +423,7 @@ function renderHud() {
     el.throttle.textContent = `◈ ${h.world.name}`;
     el.speed.textContent = h.world.theme;
     el.radar.classList.remove('show');
+    if (surface) { el.minimap.classList.add('show'); drawMinimap(surface); }
     const gr = h.ground;
     if (gr && (gr.hp < gr.maxHp || gr.enemies > 0)) {
       const k = Math.round(clamp01(gr.hp / gr.maxHp) * 12);
@@ -417,6 +449,7 @@ function renderHud() {
     el.throttle.textContent = `THR [${'█'.repeat(bars)}${'·'.repeat(16 - bars)}] ${pct}%`;
     el.speed.textContent = `SPD ${Math.round(h.speed)} u/s`;
 
+    el.minimap.classList.remove('show');
     if (h.radar) { el.radar.classList.add('show'); drawRadar(h.radar); }
     else el.radar.classList.remove('show');
 

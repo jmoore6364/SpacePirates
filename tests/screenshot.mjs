@@ -271,6 +271,17 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-terrain.png') });
     console.log('› screenshot → pass1-terrain.png');
 
+    // #5 world minimap drew on foot
+    const miniDrawn = await page.evaluate(() => {
+      const c = document.getElementById('minimap');
+      if (!c.classList.contains('show') || !c.width) return false;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return true;
+      return false;
+    });
+    if (!miniDrawn) errors.push('world minimap not drawn on foot');
+    console.log(`› world minimap drawn: ${miniDrawn}`);
+
     // On-foot blaster combat: spawn an enforcer in front and gun it down
     await page.evaluate(() => {
       const s = window.__VC__.surface; const g = s.ground; const c = s.character;
