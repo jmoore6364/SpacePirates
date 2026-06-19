@@ -107,6 +107,18 @@ async function main() {
     const paused = await page.evaluate(() => window.__VC__.menu.isOpen);
     if (!paused) errors.push('pause menu did not open on Escape');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass7-menu.png') });
+    // #11 save slots: open the manager from the menu, save to slot 2, verify
+    await page.evaluate(() => window.__VC__.savesPanel.open(window.__VC__.player.activeSlot));
+    await page.waitForFunction(() => window.__VC__.savesPanel.isOpen === true, { timeout: 5000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass11-saves.png') });
+    await page.evaluate(() => document.querySelector('#saves [data-save="2"]')?.click());
+    const slot2 = await page.evaluate(() => ({
+      active: window.__VC__.player.activeSlot,
+      has: !!localStorage.getItem('voidcorsair.slot.2'),
+    }));
+    if (!slot2.has) errors.push('save slot 2 was not written');
+    console.log(`› saves: wrote slot 2 = ${slot2.has}, active slot ${slot2.active}`);
+    await page.evaluate(() => window.__VC__.savesPanel.close());
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => window.__VC__.menu.isOpen === false, { timeout: 5000 }).catch(() => {});
     console.log(`› pause menu opened+resumed: ${paused}`);

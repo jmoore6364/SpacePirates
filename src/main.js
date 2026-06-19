@@ -8,6 +8,8 @@ import { StarMap } from './ui/StarMap.js';
 import { Shop, MissionBoard, Market, Dialogue, Skills, Shipyard } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { MenuScreen } from './ui/MenuScreen.js';
+import { SavesPanel } from './ui/SavesPanel.js';
+import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
@@ -104,9 +106,23 @@ function setPaused(p) {
   else menu.close();
 }
 
+const savesPanel = new SavesPanel({
+  store: (typeof localStorage !== 'undefined') ? localStorage : null,
+  onSave: (slot) => { player.saveToSlot(slot); toast(`Saved to slot ${slot + 1}.`); },
+  onLoad: (slot) => {
+    if (player.loadFromSlot(slot)) {
+      savesPanel.close(); setPaused(false);
+      enterSpace('neon-haven');
+      toast(`Loaded slot ${slot + 1}.`);
+    }
+  },
+  onDelete: (slot) => { deleteSlot(savesPanel.store, slot); toast(`Deleted slot ${slot + 1}.`); },
+});
+
 const menu = new MenuScreen({
   onResume: () => setPaused(false),
-  onSave: () => { player.save(); saveSettings(); toast('Game saved.'); },
+  onSave: () => { player.save(); saveSettings(); toast('Quick-saved.'); },
+  onSaves: () => savesPanel.open(player.activeSlot),
   onQuit: () => { player.save(); saveSettings(); window.location.reload(); },
   onChange: applySetting,
 });
@@ -275,6 +291,8 @@ window.addEventListener('keydown', (e) => {
 
   if (!started) return; // title screen owns input until launch
 
+  // saves manager sits above the pause menu
+  if (savesPanel.isOpen) { if (e.code === 'Escape') savesPanel.close(); return; }
   // pause menu owns input while open
   if (menu.isOpen) { if (e.code === 'Escape') setPaused(false); return; }
 
@@ -587,7 +605,8 @@ const titleScreen = new TitleScreen({
   hasSave: player.hasSave(),
   onStart: (isNew) => {
     if (isNew) {
-      player.reset();
+      // start a fresh game in an empty slot so existing saves aren't clobbered
+      player.reset(player.store ? firstEmptySlot(player.store) : 0);
       for (const k of Object.keys(offersByWorld)) delete offersByWorld[k];
     }
     started = true;
@@ -604,7 +623,7 @@ requestAnimationFrame(() => {
 });
 
 window.__VC__ = {
-  renderer, scenes, loop, input, starMap, audio, titleScreen, menu,
+  renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel,
   player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },

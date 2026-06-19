@@ -2,9 +2,10 @@
 // Save, and Quit to title. Emits changes via onChange(key, value); the host applies
 // + persists them. See issue #7.
 export class MenuScreen {
-  constructor({ onResume, onSave, onQuit, onChange } = {}) {
+  constructor({ onResume, onSave, onSaves, onQuit, onChange } = {}) {
     this.onResume = onResume || (() => {});
     this.onSave = onSave || (() => {});
+    this.onSaves = onSaves || (() => {});
     this.onQuit = onQuit || (() => {});
     this.onChange = onChange || (() => {});
     this.isOpen = false;
@@ -33,7 +34,8 @@ export class MenuScreen {
         <div class="mn-title">PAUSED</div>
         <div class="mn-actions">
           <button class="mn-btn primary" data-act="resume">RESUME</button>
-          <button class="mn-btn" data-act="save">SAVE GAME</button>
+          <button class="mn-btn" data-act="save">QUICK SAVE</button>
+          <button class="mn-btn" data-act="saves">MANAGE SAVES</button>
           <button class="mn-btn" data-act="quit">QUIT TO TITLE</button>
         </div>
         <div class="mn-sec">SETTINGS</div>
@@ -55,6 +57,7 @@ export class MenuScreen {
     const $ = (sel) => this.root.querySelector(sel);
     $('[data-act="resume"]').onclick = () => this.onResume();
     $('[data-act="save"]').onclick = () => this.onSave();
+    $('[data-act="saves"]').onclick = () => this.onSaves();
     $('[data-act="quit"]').onclick = () => this.onQuit();
     $('[data-act="bloom"]').onclick = () => { this.onChange('bloom', !s.bloom); this._render(); };
     $('[data-act="quality"]').onchange = (e) => { this.onChange('quality', e.target.value); };

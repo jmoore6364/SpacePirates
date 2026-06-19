@@ -2,6 +2,7 @@
 // available (guarded so it stays unit-testable under Node). Upgrade levels feed
 // derived ship stats the scenes read.
 import { HULLS, hullById } from './Hulls.js';
+import { writeSlot, readSlot, mostRecentSlot, migrateLegacy, hasAnySave } from './SaveSlots.js';
 
 export const UPGRADES = {
   engine:  { name: 'Engine',  desc: 'Top speed',      max: 5, baseCost: 200, mult: 1.6, per: 90  },
@@ -11,7 +12,6 @@ export const UPGRADES = {
   hull:    { name: 'Hull',    desc: 'Max integrity',  max: 5, baseCost: 220, mult: 1.6, per: 40  },
 };
 
-const SAVE_KEY = 'voidcorsair.save.v1';
 const DEFAULTS = () => ({
   credits: 500,
   upgrades: { engine: 0, shields: 0, weapons: 0, cargo: 0, hull: 0 },
@@ -42,40 +42,48 @@ export const SKILLS = {
 export class Player {
   constructor(store = globalThis.localStorage) {
     this.store = store && typeof store.getItem === 'function' ? store : null;
-    const loaded = this._load();
-    Object.assign(this, DEFAULTS(), loaded);
-  }
-
-  _load() {
-    if (!this.store) return {};
-    try {
-      const raw = this.store.getItem(SAVE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
-  }
-
-  save() {
-    if (!this.store) return;
-    try {
-      this.store.setItem(SAVE_KEY, JSON.stringify({
-        credits: this.credits, upgrades: this.upgrades, completed: this.completed,
-        cargo: this.cargo, questState: this.questState,
-        xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
-        hull: this.hull, hullsOwned: this.hullsOwned,
-        fuel: this.fuel, maxFuel: this.maxFuel,
-      }));
-    } catch { /* storage full / disabled — ignore */ }
-  }
-
-  reset() {
     Object.assign(this, DEFAULTS());
+    this.activeSlot = 0;
+    if (this.store) {
+      migrateLegacy(this.store);
+      const recent = mostRecentSlot(this.store);
+      if (recent != null) { this.activeSlot = recent; const d = readSlot(this.store, recent); if (d && d.state) this.applyState(d.state); }
+    }
+  }
+
+  // Plain-object snapshot of all persisted state (used by SaveSlots).
+  serialize() {
+    return {
+      credits: this.credits, upgrades: this.upgrades, completed: this.completed,
+      cargo: this.cargo, questState: this.questState,
+      xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
+      hull: this.hull, hullsOwned: this.hullsOwned,
+      fuel: this.fuel, maxFuel: this.maxFuel,
+    };
+  }
+
+  applyState(obj) { Object.assign(this, DEFAULTS(), obj); }
+
+  // Autosave writes to the active slot.
+  save() { writeSlot(this.store, this.activeSlot, this); }
+
+  // Slot operations (used by the save UI).
+  saveToSlot(slot) { this.activeSlot = slot; writeSlot(this.store, slot, this); }
+  loadFromSlot(slot) {
+    const d = readSlot(this.store, slot);
+    if (!d || !d.state) return false;
+    this.applyState(d.state);
+    this.activeSlot = slot;
+    return true;
+  }
+
+  reset(slot = this.activeSlot) {
+    Object.assign(this, DEFAULTS());
+    this.activeSlot = slot;
     this.save();
   }
 
-  hasSave() {
-    if (!this.store) return false;
-    try { return !!this.store.getItem(SAVE_KEY); } catch { return false; }
-  }
+  hasSave() { return hasAnySave(this.store); }
 
   level(id) { return this.upgrades[id] || 0; }
 
