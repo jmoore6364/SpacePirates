@@ -7,6 +7,7 @@ export class Input {
     this.mouseLeft = false;
     this.mouseFlight = true; // steer the ship toward the cursor (toggle in settings)
     this.touchMove = { x: 0, y: 0, active: false }; // virtual stick for on-foot movement
+    this.lookDX = 0; // accumulated relative mouse motion while pointer-locked (on-foot look)
 
     this._down = (e) => {
       if (e.metaKey || e.ctrlKey) return;
@@ -15,6 +16,11 @@ export class Input {
     };
     this._up = (e) => this.keys.delete(e.code);
     this._move = (e) => {
+      if (typeof document !== 'undefined' && document.pointerLockElement) {
+        // pointer-locked: feed relative motion to the on-foot look accumulator
+        this.lookDX += e.movementX || 0;
+        return;
+      }
       const w = window.innerWidth || 1, h = window.innerHeight || 1;
       this.mouse.x = (e.clientX / w) * 2 - 1;
       this.mouse.y = (e.clientY / h) * 2 - 1;
@@ -49,6 +55,9 @@ export class Input {
     const pos = posCodes.some((c) => this.keys.has(c)) ? 1 : 0;
     return pos - neg;
   }
+
+  // Consume accumulated mouse-look delta (pixels) since last call.
+  consumeLookDX() { const d = this.lookDX; this.lookDX = 0; return d; }
 
   // For tests/automation.
   press(code) { this.keys.add(code); }

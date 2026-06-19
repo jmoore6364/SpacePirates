@@ -338,13 +338,22 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
     console.log('› screenshot → pass3-walk.png');
 
-    // land mouse movement: cursor up = walk forward
-    const mb = await page.evaluate(() => { const c = window.__VC__.surface.character; window.__VC__.input.setMouse(0, -0.9); return { x: c.position.x, z: c.position.z }; });
-    await sleep(600);
-    const ma = await page.evaluate(() => { const c = window.__VC__.surface.character; window.__VC__.input.setMouse(0, 0); window.__VC__.input.mouse.active = false; return { x: c.position.x, z: c.position.z }; });
-    const md = Math.hypot(ma.x - mb.x, ma.z - mb.z);
-    if (md < 2) errors.push(`mouse did not move character on foot (${md.toFixed(1)})`);
-    console.log(`› land mouse move: ${md.toFixed(1)} units`);
+    // land mouse-look: relative mouse motion turns the character (point anywhere)
+    const yawA = await page.evaluate(() => window.__VC__.surface.lookYaw);
+    await page.evaluate(() => { window.__VC__.input.lookDX += 400; }); // simulate mouse moved right
+    await sleep(500);
+    const yawB = await page.evaluate(() => window.__VC__.surface.lookYaw);
+    if (Math.abs(yawB - yawA) < 0.1) errors.push(`mouse-look did not turn the character (Δ=${(yawB - yawA).toFixed(3)})`);
+    console.log(`› land mouse look: yaw Δ=${(yawB - yawA).toFixed(2)}`);
+    // forward still works on keys
+    // face an open direction first so we don't immediately bump a building
+    await page.evaluate(() => { window.__VC__.surface.lookYaw = 0; window.__VC__.surface.character.position.set(0, 0, 18); });
+    const kb = await page.evaluate(() => { const c = window.__VC__.surface.character; window.__VC__.input.press('KeyW'); return { x: c.position.x, z: c.position.z }; });
+    await sleep(500);
+    await page.evaluate(() => window.__VC__.input.release('KeyW'));
+    const ka = await page.evaluate(() => { const c = window.__VC__.surface.character; return { x: c.position.x, z: c.position.z }; });
+    if (Math.hypot(ka.x - kb.x, ka.z - kb.z) < 1) errors.push('W did not walk the character forward');
+    console.log(`› land key forward: ${Math.hypot(ka.x - kb.x, ka.z - kb.z).toFixed(1)} units`);
 
     // #1 Terrain: plaza is flat, terrain rolls away from it, character grounds to it
     const terr = await page.evaluate(() => {

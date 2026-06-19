@@ -156,18 +156,21 @@ export class SurfaceScene {
     const tm = i.touchMove;
     const tf = tm && tm.active ? -tm.y : 0;
     const tt = tm && tm.active ? tm.x : 0;
-    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0, y: 0 };
     return {
-      forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf - ms.y),
-      turn: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt + ms.x),
+      // forward/back is keys (or touch stick Y) — not the mouse
+      forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
+      // A/D + touch stick X turn at a rate; mouse-look adds to this in update()
+      turn: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt),
       strafe: i.axis(['KeyQ'], ['KeyE']),
     };
   }
 
   update(dt) {
     const c = this.readControls();
-    const TURN_RATE = 2.6; // rad/s at full deflection
+    const TURN_RATE = 2.6;     // rad/s for keys/touch
+    const MOUSE_SENS = 0.0024; // rad per pixel of mouse-look (pointer-locked)
     this.lookYaw += c.turn * TURN_RATE * dt;
+    if (this.input && this.input.consumeLookDX) this.lookYaw += this.input.consumeLookDX() * MOUSE_SENS;
     this.character.update(dt, { forward: c.forward, strafe: c.strafe }, this.lookYaw, this.colliders);
     if (this.cam) this.cam.update(dt, this.character);
 

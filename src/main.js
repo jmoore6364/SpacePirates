@@ -69,7 +69,16 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
 }
 
+const exitLook = () => { try { if (typeof document !== 'undefined' && document.exitPointerLock) document.exitPointerLock(); } catch { /* ignore */ } };
 const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; if (space) space.inputLocked = false; };
+
+// On foot, click the game to capture the mouse for free look (pointer lock).
+renderer.three.domElement.addEventListener('click', () => {
+  if (started && !paused && !panel && !menu.isOpen && !savesPanel.isOpen
+      && !starMap.isOpen && scenes.mode === Mode.SURFACE && input.mouseFlight) {
+    try { renderer.three.domElement.requestPointerLock?.(); } catch { /* ignore */ }
+  }
+});
 const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
@@ -87,6 +96,7 @@ function awardXp(n) {
 function openSkills() {
   if (scenes.mode === Mode.SPACE && space) space.inputLocked = true;
   else if (surface) surface.inputLocked = true;
+  exitLook();
   audio.blip();
   skills.open(player);
   panel = skills;
@@ -104,7 +114,7 @@ function applySetting(key, value) {
 
 function setPaused(p) {
   paused = p;
-  if (p) menu.open(settings);
+  if (p) { menu.open(settings); exitLook(); }
   else menu.close();
 }
 
@@ -130,6 +140,7 @@ const menu = new MenuScreen({
 });
 
 function enterSpace(worldId) {
+  exitLook(); // space uses absolute mouse steering, not pointer lock
   space = new SpaceScene(input);
   space.active = started; // stays paused behind the title screen
   space.onEvent = (e) => {
@@ -240,6 +251,7 @@ function talkToVex(world) {
     lines = ['"Nothing for you right now, Corsair."'];
   }
   surface.inputLocked = true;
+  exitLook();
   audio.blip();
   dialogue.open('VEX', lines, () => {
     const r = questLog.talk('vex', world.id);
@@ -252,6 +264,7 @@ function talkToVex(world) {
 function openInteract(world, kind) {
   if (kind === 'quest') { talkToVex(world); return; }
   surface.inputLocked = true;
+  exitLook();
   audio.blip();
   if (kind === 'shop') { shop.open(player); panel = shop; }
   else if (kind === 'market') { market.open(player, world); panel = market; }
@@ -536,7 +549,7 @@ function renderHud() {
       el.approach.innerHTML = `▸ At your ship — press <b>T</b> to take off`;
       el.approach.classList.add('show');
     } else {
-      el.approach.innerHTML = `<span class="lo">Mouse aim/move · [W/S] walk · [A/D] turn · [J/click] blaster · [E] interact · [T] take off</span>`;
+      el.approach.innerHTML = `<span class="lo">Click to capture mouse-look · [W/S] walk · [A/D]/mouse turn · [J/click] blaster · [E] interact · [T] take off</span>`;
       el.approach.classList.add('show');
     }
   } else {
