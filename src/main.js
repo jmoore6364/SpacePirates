@@ -6,9 +6,11 @@ import { SpaceScene } from './scenes/SpaceScene.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
 import { Shop, MissionBoard } from './ui/Panels.js';
+import { TitleScreen } from './ui/TitleScreen.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
+import { AudioManager } from './systems/Audio.js';
 import { clamp } from './util/math.js';
 
 const clamp01 = (x) => clamp(x, 0, 1);
@@ -33,20 +35,39 @@ const el = {
 
 let space = null;
 let surface = null;
-let busy = false; // true during a fade transition
-let panel = null; // open DOM panel (shop / missions)
+let busy = false;    // true during a fade transition
+let panel = null;    // open DOM panel (shop / missions)
+let started = false; // false while the title screen is up
 
+const audio = new AudioManager();
 const missionLog = new MissionLog(player);
 const offersByWorld = {};
+
+// --- settings (bloom + sound), persisted ---
+const SETTINGS_KEY = 'voidcorsair.settings.v1';
+const settings = loadSettings();
+function loadSettings() {
+  try { return Object.assign({ bloom: true, muted: false }, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); }
+  catch { return { bloom: true, muted: false }; }
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
+}
 
 const shop = new Shop({ onClose: () => { panel = null; if (surface) surface.inputLocked = false; } });
 const missionBoard = new MissionBoard({ onClose: () => { panel = null; if (surface) surface.inputLocked = false; } });
 
 function enterSpace(worldId) {
   space = new SpaceScene(input);
+  space.active = started; // stays paused behind the title screen
   space.onEvent = (e) => {
-    if (e.type === 'kill') toast(`Target destroyed — bounty +${e.bounty} cr`);
-    else if (e.type === 'destroyed') toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`);
+    switch (e.type) {
+      case 'fire': audio.laser(); break;
+      case 'hit': break;
+      case 'playerHit': audio.hit(); break;
+      case 'kill': audio.explosion(); toast(`Target destroyed — bounty +${e.bounty} cr`); break;
+      case 'destroyed': audio.explosion(); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
+    }
   };
   scenes.switchTo(Mode.SPACE, space);
   if (worldId) space.travelTo(worldId);
@@ -59,6 +80,7 @@ const starMap = new StarMap({
     space.inputLocked = false;
     space.travelTo(worldId);
     scenes.mode = Mode.SPACE;
+    audio.warp();
     toast(`Warping to ${WORLDS.find((w) => w.id === worldId)?.name}…`);
   },
 });
@@ -91,6 +113,7 @@ function land(world) {
 
 function openInteract(world, kind) {
   surface.inputLocked = true;
+  audio.blip();
   if (kind === 'shop') { shop.open(player); panel = shop; }
   else {
     const offers = offersByWorld[world.id] || (offersByWorld[world.id] = generateOffers(world.id));
@@ -116,6 +139,12 @@ function toast(msg) {
 // --- UI / mode keys (single-press) ---
 window.addEventListener('keydown', (e) => {
   if (e.repeat || e.metaKey || e.ctrlKey || busy) return;
+
+  // settings toggles work anytime
+  if (e.code === 'KeyB') { settings.bloom = !settings.bloom; renderer.setBloom(settings.bloom); saveSettings(); toast(`Bloom ${settings.bloom ? 'on' : 'off'}`); return; }
+  if (e.code === 'KeyP') { settings.muted = audio.toggleMute(); saveSettings(); toast(`Sound ${settings.muted ? 'off' : 'on'}`); return; }
+
+  if (!started) return; // title screen owns input until launch
 
   // a DOM panel grabs E/Esc to close
   if (panel) {
@@ -222,8 +251,30 @@ const loop = new GameLoop({
   render: () => renderer.render(),
 });
 
-enterSpace();
+// apply persisted settings, blip on shop/mission changes
+renderer.setBloom(settings.bloom);
+audio.setMuted(settings.muted);
+shop.onChange = () => audio.blip();
+missionBoard.onChange = () => audio.blip();
+
+enterSpace();        // live backdrop behind the title
 loop.start();
+
+// title screen gates the start
+const titleScreen = new TitleScreen({
+  hasSave: player.hasSave(),
+  onStart: (isNew) => {
+    if (isNew) {
+      player.reset();
+      for (const k of Object.keys(offersByWorld)) delete offersByWorld[k];
+    }
+    started = true;
+    enterSpace('neon-haven'); // fresh scene applies current ship stats; sets active
+    audio.resume();
+    audio.startMusic();
+    toast(isNew ? 'New game — fly safe out there, Corsair.' : 'Welcome back, Corsair.');
+  },
+});
 
 requestAnimationFrame(() => {
   el.loading.classList.add('hidden');
@@ -231,8 +282,9 @@ requestAnimationFrame(() => {
 });
 
 window.__VC__ = {
-  renderer, scenes, loop, input, starMap,
+  renderer, scenes, loop, input, starMap, audio, titleScreen,
   player, missionLog, shop, missionBoard,
+  start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },
   land, takeoff,

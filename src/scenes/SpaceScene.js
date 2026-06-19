@@ -34,22 +34,34 @@ export class SpaceScene {
     this.ship.maxSpeed = player.stats().maxSpeed; // apply engine upgrades
     this.scene.add(this.ship.object);
 
-    this.onEvent = null; // main sets this for toasts / reactions
+    this.onEvent = null; // main sets this for toasts / audio
+    this.renderer = null; // set in onEnter for screen shake
     this.combat = new Combat(this.scene, this.ship, input, {
-      onKill: (bounty) => this._emit({ type: 'kill', bounty }),
-      onDestroyed: (penalty) => { this.travelTo('neon-haven'); this._emit({ type: 'destroyed', penalty }); },
+      onEvent: (e) => this._onCombat(e),
     });
 
     this.chase = null;
     this._enginePulse = 0;
     this._tmp = new THREE.Vector3();
     this.approach = null; // { world, dist } when near a world
+    this.active = true;   // gates combat (paused behind the title screen)
     this.hud = {};
   }
 
   _emit(e) { if (this.onEvent) this.onEvent(e); }
 
+  _onCombat(e) {
+    // local screen shake
+    if (this.renderer) {
+      const amt = { fire: 0.12, hit: 0.2, kill: 0.8, playerHit: 0.5, destroyed: 2.4 }[e.type];
+      if (amt) this.renderer.addShake(amt);
+    }
+    if (e.type === 'destroyed') this.travelTo('neon-haven');
+    this._emit(e); // forward to main for audio/toasts
+  }
+
   onEnter(renderer) {
+    this.renderer = renderer;
     this.chase = new ChaseCamera(renderer.camera);
     this.ship.throttle = 0.25;
     // start near Neon Haven looking inward
@@ -116,7 +128,7 @@ export class SpaceScene {
     }
 
     this._updateApproach();
-    this.combat.update(dt);
+    if (this.active) this.combat.update(dt);
 
     const speed01 = this.ship.speed / this.ship.maxSpeed;
     if (this.chase) this.chase.update(dt, this.ship.object, speed01);

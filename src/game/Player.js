@@ -40,6 +40,16 @@ export class Player {
     } catch { /* storage full / disabled — ignore */ }
   }
 
+  reset() {
+    Object.assign(this, DEFAULTS());
+    this.save();
+  }
+
+  hasSave() {
+    if (!this.store) return false;
+    try { return !!this.store.getItem(SAVE_KEY); } catch { return false; }
+  }
+
   level(id) { return this.upgrades[id] || 0; }
 
   // Cost of the NEXT level, or null if maxed / unknown.

@@ -81,6 +81,22 @@ async function main() {
     });
     if (gl !== 'ok') errors.push(`webgl check failed: ${gl}`);
 
+    // Pass 6: title screen shows at boot; capture it, then launch
+    await sleep(400);
+    if (!(await page.evaluate(() => window.__VC__.titleScreen.isOpen))) {
+      errors.push('title screen not shown at boot');
+    }
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass6-title.png') });
+    console.log('› screenshot → pass6-title.png');
+    await page.evaluate(() => window.__VC__.start(false)); // launch the game
+    await sleep(400);
+    const boot = await page.evaluate(() => ({
+      started: window.__VC__.scenes.mode,
+      bloom: window.__VC__.renderer.bloomEnabled,
+      audioCtx: !!window.__VC__.audio.ctx,
+    }));
+    console.log(`› launched: mode=${boot.started}, bloom=${boot.bloom}, audioCtx=${boot.audioCtx}`);
+
     // resting frame
     await sleep(600);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-rest.png') });

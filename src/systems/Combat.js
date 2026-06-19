@@ -13,12 +13,11 @@ const ENEMY_FIRE_RANGE = 360;
 const SHIELD_REGEN = 8; // per second after a lull
 
 export class Combat {
-  constructor(scene, ship, input, { onDestroyed, onKill } = {}) {
+  constructor(scene, ship, input, { onEvent } = {}) {
     this.scene = scene;
     this.ship = ship;
     this.input = input;
-    this.onDestroyed = onDestroyed || (() => {});
-    this.onKill = onKill || (() => {});
+    this.onEvent = onEvent || (() => {});
 
     const stats = player.stats();
     this.maxShield = 60 + stats.shield;
@@ -74,6 +73,7 @@ export class Combat {
       const start = this.ship.position.clone().addScaledVector(right, off).addScaledVector(fwd, 2);
       this._spawnProjectile(start, aim.clone(), false, this.weaponDmg);
     }
+    this.onEvent({ type: 'fire' });
   }
 
   _aimDir(fwd) {
@@ -221,7 +221,7 @@ export class Combat {
     this.wanted = clamp(Math.floor(this.kills / 2), 0, 5);
     const bounty = 60 + this.wanted * 20;
     player.addCredits(bounty);
-    this.onKill(bounty);
+    this.onEvent({ type: 'kill', bounty });
   }
 
   _damagePlayer(dmg) {
@@ -236,6 +236,7 @@ export class Combat {
       this.hull -= dmg;
       this._spark(this.ship.position, 0xff5b6e, 0.8);
     }
+    this.onEvent({ type: 'playerHit' });
     if (this.hull <= 0) this._destroyPlayer();
   }
 
@@ -250,7 +251,7 @@ export class Combat {
     this.kills = 0;
     const penalty = Math.round(player.credits * 0.1);
     player.addCredits(-penalty);
-    this.onDestroyed(penalty);
+    this.onEvent({ type: 'destroyed', penalty });
   }
 
   _regenShield(dt) {
