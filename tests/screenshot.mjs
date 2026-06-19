@@ -105,6 +105,40 @@ async function main() {
     });
     console.log(`› telemetry: ${telem.fps} fps, throttle ${telem.throttle}%, speed ${telem.speed} u/s`);
     if (telem.speed < 50) errors.push(`ship not moving (speed=${telem.speed})`);
+
+    // stop flying
+    await page.evaluate(() => {
+      const i = window.__VC__.input;
+      ['Space', 'ArrowLeft', 'KeyQ'].forEach((c) => i.release(c));
+    });
+
+    // Pass 2: star map opens
+    await page.keyboard.press('m');
+    await sleep(400);
+    if (!(await page.evaluate(() => window.__VC__.starMap.isOpen))) {
+      errors.push('star map did not open on M');
+    }
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass2-starmap.png') });
+    console.log('› screenshot → pass2-starmap.png');
+    await page.keyboard.press('m'); // close
+    await sleep(200);
+
+    // Pass 2: approach prompt fires near a world
+    await page.evaluate(() => {
+      const s = window.__VC__.space;
+      const p = s.planets[0];
+      const w = p.userData.world;
+      s.ship.position.set(p.position.x, p.position.y, p.position.z + w.r * 1.4);
+      s.ship.velocity.set(0, 0, 0);
+      s.ship.throttle = 0;
+      s.ship.object.lookAt(p.position);
+    });
+    await sleep(500);
+    if (!(await page.evaluate(() => !!window.__VC__.space.approach))) {
+      errors.push('approach prompt did not trigger near a world');
+    }
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass2-approach.png') });
+    console.log('› screenshot → pass2-approach.png');
   } finally {
     if (browser) await browser.close();
     server.kill();

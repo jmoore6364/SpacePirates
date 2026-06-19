@@ -29,6 +29,22 @@
       background: #05060d; transition: opacity 0.6s ease;
     }
     #loading.hidden { opacity: 0; pointer-events: none; }
+
+    #hud-approach {
+      position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%);
+      text-align: center; font-size: 15px; letter-spacing: 1px; color: #aef0c0;
+      text-shadow: 0 0 10px rgba(120,255,160,0.5); opacity: 0; transition: opacity 0.2s;
+    }
+    #hud-approach.show { opacity: 1; }
+    #hud-approach .lo { font-size: 12px; opacity: 0.7; color: #cfeaff; }
+
+    #hud-toast {
+      position: absolute; left: 50%; top: 70px; transform: translateX(-50%);
+      padding: 8px 16px; background: rgba(8,12,24,0.85); border: 1px solid #3a6ab0;
+      border-radius: 6px; font-size: 13px; color: #cfeaff; opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #hud-toast.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -40,8 +56,10 @@
       <div id="hud-throttle">THR [················] 0%</div>
       <div id="hud-speed">SPD 0 u/s</div>
     </div>
-    <div class="corner bl">SPACE thrust · SHIFT brake · W/S pitch · A/D yaw · Q/E roll</div>
+    <div class="corner bl">SPACE thrust · SHIFT brake · W/S pitch · A/D yaw · Q/E roll · M map</div>
     <div class="corner br" id="hud-fps">-- fps</div>
+    <div id="hud-approach"></div>
+    <div id="hud-toast"></div>
   </div>
   <div id="loading">INITIALIZING SYSTEMS…</div>
   <script type="module" src="/src/main.js"></script>
