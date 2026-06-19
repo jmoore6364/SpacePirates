@@ -176,6 +176,18 @@ async function main() {
     if (yawTurned < 1e-3) errors.push('mouse steering did not rotate the ship');
     console.log(`› mouse steer rotated ship: ${yawTurned > 1e-3} (Δ=${yawTurned.toFixed(4)})`);
 
+    // #17 touch controls: force-show and confirm the stick drives input
+    const tc = await page.evaluate(() => {
+      const t = window.__VC__.touch; t.enable();
+      t._setStick(0.8, -0.5);
+      const r = { mx: window.__VC__.input.mouse.x, tmActive: window.__VC__.input.touchMove.active, vis: document.getElementById('touch').style.display };
+      return r;
+    });
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass17-touch.png') });
+    await page.evaluate(() => { const t = window.__VC__.touch; t._setStick(0, 0); t.disable(); window.__VC__.input.mouse.active = false; });
+    if (Math.abs(tc.mx - 0.8) > 1e-6 || !tc.tmActive) errors.push('touch stick did not drive input');
+    console.log(`› touch controls: stick→steer ${tc.mx}, move ${tc.tmActive}, shown ${tc.vis}`);
+
     // Enemy variety: spawn one of each archetype for a showcase
     await page.evaluate(() => {
       const s = window.__VC__.space; const c = s.combat;

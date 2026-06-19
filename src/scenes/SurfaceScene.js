@@ -148,9 +148,13 @@ export class SurfaceScene {
   readMove() {
     const i = this.input;
     if (!i || this.inputLocked) return { forward: 0, strafe: 0 };
+    const clampU = (v) => (v < -1 ? -1 : v > 1 ? 1 : v);
+    const tm = i.touchMove;
+    const tf = tm && tm.active ? -tm.y : 0; // stick up = forward
+    const ts = tm && tm.active ? tm.x : 0;
     return {
-      forward: i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']),
-      strafe: i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']),
+      forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
+      strafe: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + ts),
     };
   }
 

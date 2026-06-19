@@ -6,6 +6,7 @@ export class Input {
     this.mouse = { x: 0, y: 0, active: false }; // x,y in [-1,1] from screen center
     this.mouseLeft = false;
     this.mouseFlight = true; // steer the ship toward the cursor (toggle in settings)
+    this.touchMove = { x: 0, y: 0, active: false }; // virtual stick for on-foot movement
 
     this._down = (e) => {
       if (e.metaKey || e.ctrlKey) return;

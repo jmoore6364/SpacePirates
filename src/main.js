@@ -9,6 +9,7 @@ import { Shop, MissionBoard, Market, Dialogue, Skills, Shipyard } from './ui/Pan
 import { TitleScreen } from './ui/TitleScreen.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { SavesPanel } from './ui/SavesPanel.js';
+import { TouchControls } from './ui/TouchControls.js';
 import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
@@ -599,6 +600,10 @@ shop.onChange = () => audio.blip();
 missionBoard.onChange = () => audio.blip();
 market.onChange = () => audio.blip();
 
+// touch controls (shown on touch devices)
+const touch = new TouchControls(input, { getMode: () => scenes.mode });
+touch.autoEnable();
+
 enterSpace();        // live backdrop behind the title
 loop.start();
 
@@ -625,7 +630,7 @@ requestAnimationFrame(() => {
 });
 
 window.__VC__ = {
-  renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel,
+  renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel, touch,
   player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
