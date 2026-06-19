@@ -144,11 +144,17 @@ async function main() {
     await sleep(300);
     const variety = await page.evaluate(() => {
       const c = window.__VC__.space.combat;
-      return { n: c.enemies.length, hps: c.enemies.map((e) => e.hp), names: c.enemies.map((e) => e.type.name) };
+      return {
+        n: c.enemies.length,
+        hps: c.enemies.map((e) => e.hp),
+        names: c.enemies.map((e) => e.type.name),
+        radar: window.__VC__.space.hud?.radar?.length ?? 0,
+      };
     });
-    console.log(`› enemy variety: ${JSON.stringify(variety.names)} hp=${JSON.stringify(variety.hps)}`);
+    console.log(`› enemy variety: ${JSON.stringify(variety.names)} hp=${JSON.stringify(variety.hps)} radar=${variety.radar}`);
     if (variety.n !== 3) errors.push(`enemy variety spawn count ${variety.n}`);
     if (new Set(variety.hps).size < 3) errors.push('enemy archetypes not distinct (hp)');
+    if (variety.radar < 8) errors.push(`radar blips too few (${variety.radar})`);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass8-enemies.png') });
     console.log('› screenshot → pass8-enemies.png');
 

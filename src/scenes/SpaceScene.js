@@ -139,7 +139,26 @@ export class SpaceScene {
       maxSpeed: this.ship.maxSpeed,
       approach: this.approach,
       combat: this.combat.hudData(),
+      radar: this._radarBlips(),
     };
+  }
+
+  // Blips in radar-local space (forward = up): {x, y} in [-1,1], type, color, far.
+  _radarBlips() {
+    const range = 2600;
+    const q = this._radarQ ? this._radarQ.copy(this.ship.object.quaternion).invert()
+      : (this._radarQ = this.ship.object.quaternion.clone().invert());
+    const blips = [];
+    const add = (pos, type, color) => {
+      const local = this._tmp.copy(pos).sub(this.ship.position).applyQuaternion(q);
+      const dist = Math.hypot(local.x, local.z);
+      let x = local.x, z = local.z, far = false;
+      if (dist > range) { const s = range / dist; x *= s; z *= s; far = true; }
+      blips.push({ x: x / range, y: z / range, type, color, far });
+    };
+    for (const p of this.planets) add(p.position, 'planet', p.userData.world.atmo);
+    for (const e of this.combat.enemies) add(e.mesh.position, 'enemy', 0xff5b6e);
+    return blips;
   }
 
   dispose() {

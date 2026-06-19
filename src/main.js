@@ -30,6 +30,7 @@ const el = {
   toast: document.getElementById('hud-toast'),
   credits: document.getElementById('hud-credits'),
   combat: document.getElementById('hud-combat'),
+  radar: document.getElementById('radar'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -209,6 +210,51 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// --- radar scanner ---
+const radarCtx = el.radar.getContext('2d');
+const hex = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
+let radarSweep = 0;
+function drawRadar(blips) {
+  const ctx = radarCtx;
+  const W = el.radar.width, H = el.radar.height;
+  const cx = W / 2, cy = H / 2, R = W / 2 - 6;
+  ctx.clearRect(0, 0, W, H);
+
+  // dish
+  ctx.fillStyle = 'rgba(8,16,28,0.55)';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(80,200,255,0.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(80,200,255,0.18)';
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+
+  // sweep line
+  radarSweep = (radarSweep + 0.12) % (Math.PI * 2);
+  ctx.strokeStyle = 'rgba(120,255,180,0.35)';
+  ctx.beginPath(); ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.sin(radarSweep) * R, cy - Math.cos(radarSweep) * R); ctx.stroke();
+
+  // blips (forward = up → screen -y)
+  for (const b of blips || []) {
+    const px = cx + b.x * R;
+    const py = cy + b.y * R;
+    ctx.globalAlpha = b.far ? 0.5 : 1;
+    ctx.fillStyle = hex(b.color);
+    ctx.beginPath();
+    ctx.arc(px, py, b.type === 'enemy' ? 2.5 : 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // own ship at center
+  ctx.fillStyle = '#dff1ff';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 5); ctx.lineTo(cx - 4, cy + 4); ctx.lineTo(cx + 4, cy + 4);
+  ctx.closePath(); ctx.fill();
+}
+
 // --- HUD ---
 let hudTimer = 0;
 function renderHud() {
@@ -222,6 +268,7 @@ function renderHud() {
     el.throttle.textContent = `◈ ${h.world.name}`;
     el.speed.textContent = h.world.theme;
     el.combat.innerHTML = '';
+    el.radar.classList.remove('show');
     if (h.interact) {
       el.approach.innerHTML = `▸ Press <b>E</b> — ${h.interact.label}`;
       el.approach.classList.add('show');
@@ -237,6 +284,9 @@ function renderHud() {
     const bars = Math.round(h.throttle * 16);
     el.throttle.textContent = `THR [${'█'.repeat(bars)}${'·'.repeat(16 - bars)}] ${pct}%`;
     el.speed.textContent = `SPD ${Math.round(h.speed)} u/s`;
+
+    if (h.radar) { el.radar.classList.add('show'); drawRadar(h.radar); }
+    else el.radar.classList.remove('show');
 
     const c = h.combat;
     if (c) {
