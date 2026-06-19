@@ -207,6 +207,15 @@ async function main() {
     if (!(await page.evaluate(() => window.__VC__.starMap.isOpen))) {
       errors.push('star map did not open on M');
     }
+    const sysMapDrawn = await page.evaluate(() => {
+      const c = document.querySelector('#starmap .sm-map');
+      if (!c) return false;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return true;
+      return false;
+    });
+    if (!sysMapDrawn) errors.push('system map canvas not drawn');
+    console.log(`› system map drawn: ${sysMapDrawn}`);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass2-starmap.png') });
     console.log('› screenshot → pass2-starmap.png');
     await page.keyboard.press('m'); // close

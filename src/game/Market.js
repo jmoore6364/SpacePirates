@@ -75,6 +75,10 @@ export function activeEventsFor(worldId) {
   return events.filter((e) => e.world === worldId);
 }
 
+export function activeEvents() {
+  return events.slice();
+}
+
 // What the market pays you to SELL one unit here.
 export function sellPrice(worldId, commodityId) {
   const c = commodityById(commodityId);

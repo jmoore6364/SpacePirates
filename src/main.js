@@ -12,7 +12,7 @@ import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
 import { QuestLog, questById } from './game/Quests.js';
 import { AudioManager } from './systems/Audio.js';
-import { tickMarket, commodityById } from './game/Market.js';
+import { tickMarket, commodityById, activeEvents } from './game/Market.js';
 import { clamp } from './util/math.js';
 
 const clamp01 = (x) => clamp(x, 0, 1);
@@ -230,7 +230,15 @@ window.addEventListener('keydown', (e) => {
       if (starMap.isOpen) {
         starMap.close(); space.inputLocked = false; scenes.mode = Mode.SPACE;
       } else if (space) {
-        starMap.open(WORLDS, space.ship.position); space.inputLocked = true; scenes.mode = Mode.MAP;
+        const dest = new Set(missionLog.active.filter((m) => m.type === 'delivery').map((m) => m.to));
+        const cur = questLog.currentStep();
+        if (cur && cur.type === 'travel') dest.add(cur.world);
+        starMap.open(WORLDS, space.ship.position, {
+          shipForward: space.ship.forward(),
+          missionDest: dest,
+          events: activeEvents(),
+        });
+        space.inputLocked = true; scenes.mode = Mode.MAP;
       }
       e.preventDefault();
       break;
