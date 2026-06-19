@@ -45,6 +45,12 @@
       transition: opacity 0.3s;
     }
     #hud-toast.show { opacity: 1; }
+
+    #fade {
+      position: fixed; inset: 0; z-index: 20; background: #02030a;
+      opacity: 0; pointer-events: none; transition: opacity 0.45s ease;
+    }
+    #fade.on { opacity: 1; }
   </style>
 </head>
 <body>
@@ -62,6 +68,7 @@
     <div id="hud-toast"></div>
   </div>
   <div id="loading">INITIALIZING SYSTEMS…</div>
+  <div id="fade"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

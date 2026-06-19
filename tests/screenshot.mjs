@@ -139,6 +139,41 @@ async function main() {
     }
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass2-approach.png') });
     console.log('› screenshot → pass2-approach.png');
+
+    // Pass 3: land on the world (F while in approach), then walk the city
+    await page.keyboard.press('f');
+    await sleep(1200); // fade transition
+    const mode = await page.evaluate(() => window.__VC__.scenes.mode);
+    if (mode !== 'SURFACE') errors.push(`did not land (mode=${mode})`);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-city.png') });
+    console.log(`› screenshot → pass3-city.png (mode=${mode})`);
+
+    const before = await page.evaluate(() => {
+      const c = window.__VC__.surface.character;
+      return { x: c.position.x, z: c.position.z };
+    });
+    await page.evaluate(() => { const i = window.__VC__.input; i.press('KeyW'); i.press('KeyD'); });
+    await sleep(1500);
+    await page.evaluate(() => { const i = window.__VC__.input; i.release('KeyW'); i.release('KeyD'); });
+    const after = await page.evaluate(() => {
+      const c = window.__VC__.surface.character;
+      return { x: c.position.x, z: c.position.z };
+    });
+    const walked = Math.hypot(after.x - before.x, after.z - before.z);
+    console.log(`› character walked ${walked.toFixed(1)} units`);
+    if (walked < 3) errors.push(`character did not walk (moved ${walked.toFixed(1)})`);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
+    console.log('› screenshot → pass3-walk.png');
+
+    // Pass 3: take off (return to the ship, press T)
+    await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });
+    await sleep(200);
+    await page.keyboard.press('t');
+    await sleep(1200);
+    const mode2 = await page.evaluate(() => window.__VC__.scenes.mode);
+    if (mode2 !== 'SPACE') errors.push(`did not take off (mode=${mode2})`);
+    console.log(`› takeoff → mode=${mode2}`);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-takeoff.png') });
   } finally {
     if (browser) await browser.close();
     server.kill();
