@@ -38,6 +38,8 @@ function injectStyles() {
     .vc-foot { margin-top: 12px; font-size: 12px; opacity: 0.55; text-align:center; }
     .vc-empty { opacity: 0.5; font-size: 13px; padding: 8px 2px; }
     .vc-tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; background:#1b2e52; color:#9fe7ff; }
+    .vc-dlg p { font-size: 14px; line-height: 1.6; margin: 0 0 10px; color: #dfeefc; }
+    .vc-dlg { margin-bottom: 14px; }
   `;
   document.head.appendChild(s);
 }
@@ -143,6 +145,24 @@ export class MissionBoard extends BasePanel {
         const m = this.offers.find((o) => o.id === b.dataset.take);
         if (m && this.log.accept(m).ok) { this.render(); this.onChange && this.onChange(); }
       });
+    });
+  }
+}
+
+export class Dialogue extends BasePanel {
+  constructor(opts) { super('vc-dialogue', opts); }
+
+  open(speaker, lines, onContinue) {
+    this.isOpen = true;
+    this.root.classList.add('open');
+    this.root.innerHTML = `<div class="vc-panel">
+      <div class="vc-head"><div class="vc-title">${speaker}</div></div>
+      <div class="vc-dlg">${lines.map((l) => `<p>${l}</p>`).join('')}</div>
+      <button class="vc-btn" data-cont>CONTINUE</button>
+    </div>`;
+    this.root.querySelector('[data-cont]').addEventListener('click', () => {
+      this.close();
+      if (onContinue) onContinue();
     });
   }
 }

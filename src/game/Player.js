@@ -15,6 +15,7 @@ const DEFAULTS = () => ({
   upgrades: { engine: 0, shields: 0, weapons: 0, cargo: 0, hull: 0 },
   completed: [],
   cargo: {}, // { commodityId: qty }
+  questState: { active: null, step: 0, kill: 0, done: [] },
 });
 
 export class Player {
@@ -36,7 +37,8 @@ export class Player {
     if (!this.store) return;
     try {
       this.store.setItem(SAVE_KEY, JSON.stringify({
-        credits: this.credits, upgrades: this.upgrades, completed: this.completed, cargo: this.cargo,
+        credits: this.credits, upgrades: this.upgrades, completed: this.completed,
+        cargo: this.cargo, questState: this.questState,
       }));
     } catch { /* storage full / disabled — ignore */ }
   }

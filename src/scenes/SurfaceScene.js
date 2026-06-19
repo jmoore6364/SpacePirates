@@ -17,10 +17,11 @@ const TIME_PHASES = [
 let _visit = 0;
 
 export class SurfaceScene {
-  constructor(input, world, threat = 0) {
+  constructor(input, world, threat = 0, questLog = null) {
     this.input = input;
     this.world = world;
     this.threat = threat;
+    this.questLog = questLog;
     this.onEvent = null; // main sets this for toasts
     this.scene = new THREE.Scene();
 
@@ -73,6 +74,10 @@ export class SurfaceScene {
     this._addVendor('shop', 'Trader', new THREE.Vector3(22, 0, -2), 0xffe6a0);
     this._addVendor('missions', 'Mission Board', new THREE.Vector3(-22, 0, -6), 0x66e0ff);
     this._addVendor('market', 'Market', new THREE.Vector3(0, 0, -26), 0xff5db1);
+    // quest-giver NPC appears when there's a job to take or hand off here
+    if (questLog && questLog.npcHere('vex', world.id)) {
+      this._addVendor('quest', 'Vex', new THREE.Vector3(14, 0, 12), 0xffd24a);
+    }
     this._addAmbientNPCs();
 
     // on-foot blaster combat — enforcers come if you landed with heat on you

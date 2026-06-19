@@ -364,7 +364,31 @@ async function main() {
     if (trade.cargo < 1) errors.push('market buy did not add cargo');
     console.log(`› bought cargo → hold ${trade.cargo}, credits ${creditsPreTrade}→${trade.credits}`);
     await page.keyboard.press('e'); // close
-    await sleep(250);
+    await page.waitForFunction(() => window.__VC__.market.isOpen === false, { timeout: 6000 }).catch(() => {});
+
+    // #4 Storyline: take "The Maw Job" from Vex at Neon Haven
+    const hasVex = await page.evaluate(() => !!window.__VC__.surface.interactables.find((i) => i.id === 'quest'));
+    if (!hasVex) errors.push('quest-giver Vex not present at Neon Haven');
+    await page.evaluate(() => {
+      const s = window.__VC__.surface;
+      const v = s.interactables.find((i) => i.id === 'quest');
+      if (v) s.character.position.set(v.position.x, 0, v.position.z + 4);
+    });
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'quest', { timeout: 6000 }).catch(() => {});
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__VC__.dialogue.isOpen === true, { timeout: 6000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-dialogue.png') });
+    await page.evaluate(() => document.querySelector('#vc-dialogue [data-cont]')?.click());
+    await sleep(200);
+    const quest = await page.evaluate(() => ({
+      active: window.__VC__.questLog.s.active,
+      step: window.__VC__.questLog.s.step,
+      obj: window.__VC__.questLog.objective(),
+    }));
+    console.log(`› quest: active=${quest.active} step=${quest.step} obj="${quest.obj}"`);
+    if (quest.active !== 'maw-job') errors.push('quest did not start from Vex');
+    if (quest.step < 1) errors.push('quest did not advance past the intro step');
+    console.log('› screenshot → pass4-dialogue.png');
 
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });

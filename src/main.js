@@ -5,11 +5,12 @@ import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
-import { Shop, MissionBoard, Market } from './ui/Panels.js';
+import { Shop, MissionBoard, Market, Dialogue } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
+import { QuestLog, questById } from './game/Quests.js';
 import { AudioManager } from './systems/Audio.js';
 import { tickMarket, commodityById } from './game/Market.js';
 import { clamp } from './util/math.js';
@@ -30,6 +31,7 @@ const el = {
   toast: document.getElementById('hud-toast'),
   credits: document.getElementById('hud-credits'),
   combat: document.getElementById('hud-combat'),
+  quest: document.getElementById('hud-quest'),
   radar: document.getElementById('radar'),
   markers: document.getElementById('markers'),
   loading: document.getElementById('loading'),
@@ -44,6 +46,7 @@ let started = false; // false while the title screen is up
 
 const audio = new AudioManager();
 const missionLog = new MissionLog(player);
+const questLog = new QuestLog(player);
 const offersByWorld = {};
 
 // --- settings (bloom + sound), persisted ---
@@ -61,6 +64,7 @@ const closePanel = () => { panel = null; if (surface) surface.inputLocked = fals
 const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
+const dialogue = new Dialogue({ onClose: closePanel });
 
 function enterSpace(worldId) {
   space = new SpaceScene(input);
@@ -72,13 +76,14 @@ function enterSpace(worldId) {
       case 'playerHit': audio.hit(); break;
       case 'kill': {
         audio.explosion();
+        const q = questLog.onKill();
         const done = missionLog.recordKill();
-        if (done.length) {
+        if (q.completed) toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`);
+        else if (done.length) {
           const sum = done.reduce((a, m) => a + m.reward, 0);
           toast(`Bounty contract complete — +${sum} cr`);
-        } else {
-          toast(`Target destroyed — bounty +${e.bounty} cr`);
-        }
+        } else if (q.advanced) toast(`Objective: ${questLog.objective()}`);
+        else toast(`Target destroyed — bounty +${e.bounty} cr`);
         break;
       }
       case 'destroyed': audio.explosion(); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
@@ -115,7 +120,7 @@ function transition(midFn) {
 function land(world) {
   const threat = space?.combat?.wanted || 0;
   transition(() => {
-    surface = new SurfaceScene(input, world, threat);
+    surface = new SurfaceScene(input, world, threat, questLog);
     surface.onEvent = (e) => {
       switch (e.type) {
         case 'blaster': audio.laser(); break;
@@ -127,6 +132,11 @@ function land(world) {
     scenes.switchTo(Mode.SURFACE, surface);
     // advance the living economy each time you make planetfall
     const news = tickMarket(WORLDS);
+
+    // quest travel/arrival progress
+    const q = questLog.onArrive(world.id);
+    if (q.completed) toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`);
+    else if (q.advanced) toast(`Objective: ${questLog.objective()}`);
 
     const done = missionLog.arriveAt(world.id);
     if (done.length) {
@@ -143,7 +153,29 @@ function land(world) {
   });
 }
 
+function talkToVex(world) {
+  const quest = questById('maw-job');
+  const step = questLog.currentStep();
+  let lines;
+  if (questLog.isAvailable('maw-job') && world.id === 'neon-haven') {
+    lines = [...quest.intro, ...(quest.steps[0].say || [])];
+  } else if (step && step.type === 'talk' && step.npc === 'vex' && step.world === world.id) {
+    lines = step.say || ['"..."'];
+  } else {
+    lines = ['"Nothing for you right now, Corsair."'];
+  }
+  surface.inputLocked = true;
+  audio.blip();
+  dialogue.open('VEX', lines, () => {
+    const r = questLog.talk('vex', world.id);
+    if (r.completed) { audio.warp(); toast(`Quest complete: ${r.quest.name} — +${r.reward.credits} cr`); }
+    else if (r.advanced) toast(`Objective: ${questLog.objective()}`);
+  });
+  panel = dialogue;
+}
+
 function openInteract(world, kind) {
+  if (kind === 'quest') { talkToVex(world); return; }
   surface.inputLocked = true;
   audio.blip();
   if (kind === 'shop') { shop.open(player); panel = shop; }
@@ -351,6 +383,8 @@ function renderHud() {
   el.mode.textContent = `MODE: ${scenes.mode}`;
   el.fps.textContent = `${loop.fps} fps`;
   el.credits.textContent = `${player.credits} cr`;
+  const obj = questLog.objective();
+  el.quest.textContent = obj ? `◈ ${obj}` : '';
   const h = scenes.current?.hud;
   if (!h) return;
 
@@ -458,7 +492,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen,
-  player, missionLog, shop, missionBoard, market,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },
