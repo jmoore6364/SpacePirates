@@ -7,6 +7,15 @@ import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
 import { GroundCombat } from '../systems/GroundCombat.js';
 
+// Per-visit time-of-day phases (a light day/night nudge layered on the world mood).
+const TIME_PHASES = [
+  { name: 'day',   sunMul: 1.0,  warm: 0x000000, ambMul: 1.0 },
+  { name: 'dusk',  sunMul: 0.7,  warm: 0x3a1505, ambMul: 0.9 },
+  { name: 'night', sunMul: 0.35, warm: 0x000814, ambMul: 0.7 },
+  { name: 'dawn',  sunMul: 0.8,  warm: 0x281030, ambMul: 0.85 },
+];
+let _visit = 0;
+
 export class SurfaceScene {
   constructor(input, world, threat = 0) {
     this.input = input;
@@ -15,17 +24,28 @@ export class SurfaceScene {
     this.onEvent = null; // main sets this for toasts
     this.scene = new THREE.Scene();
 
-    const atmo = new THREE.Color(world.atmo);
-    const ground = new THREE.Color(world.color).multiplyScalar(0.15);
-    this.scene.background = ground;
-    this.scene.fog = new THREE.Fog(ground.getHex(), 60, 360);
+    // per-world lighting mood + a rotating time-of-day phase
+    const L = world.light || { sky: 0x16203a, ground: 0x05070c, sun: 0xfff2dd, sunI: 1.2, amb: 0x223044, ambI: 0.7, fog: 0x05070c, fogNear: 60, fogFar: 340 };
+    const phase = TIME_PHASES[_visit++ % TIME_PHASES.length];
+    this.timeOfDay = phase.name;
 
-    // lights: cool ambient + a key light + themed hemisphere for the streets
-    this.scene.add(new THREE.HemisphereLight(atmo.getHex(), 0x0a0c14, 0.7));
-    this.scene.add(new THREE.AmbientLight(0x223044, 0.5));
-    const key = new THREE.DirectionalLight(0xfff2dd, 1.1);
-    key.position.set(40, 80, 30);
+    this.scene.background = new THREE.Color(L.fog);
+    this.scene.fog = new THREE.Fog(L.fog, L.fogNear, L.fogFar);
+
+    this.scene.add(new THREE.HemisphereLight(L.sky, L.ground, L.ambI * 0.9));
+    this.scene.add(new THREE.AmbientLight(L.amb, L.ambI * phase.ambMul * 0.7));
+
+    // shadow-casting key light tinted by world + time of day
+    const sunColor = new THREE.Color(L.sun).lerp(new THREE.Color(phase.warm), 0.25);
+    const key = new THREE.DirectionalLight(sunColor.getHex(), L.sunI * phase.sunMul);
+    key.position.set(60, 110, 40);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    const cam = key.shadow.camera;
+    cam.near = 10; cam.far = 320; cam.left = -90; cam.right = 90; cam.top = 90; cam.bottom = -90;
+    key.shadow.bias = -0.0004;
     this.scene.add(key);
+    this.scene.add(key.target);
 
     const city = buildCity(world);
     this.scene.add(city.group);
@@ -37,6 +57,7 @@ export class SurfaceScene {
     this.parkedShip.object.position.copy(city.padPosition).setY(1.4);
     this.parkedShip.object.rotation.set(-0.08, Math.PI * 0.85, 0);
     this.parkedShip.object.scale.setScalar(1.6);
+    this.parkedShip.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(this.parkedShip.object);
 
     // character at the spawn point, grounded to terrain
@@ -44,6 +65,7 @@ export class SurfaceScene {
     this.character.groundSampler = this.heightAt;
     this.character.position.copy(city.spawn).setY(this.heightAt(city.spawn.x, city.spawn.z));
     this.character.heading = Math.PI; // face the city
+    this.character.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(this.character.object);
 
     // vendors / interactables + ambient NPCs

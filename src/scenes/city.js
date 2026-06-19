@@ -99,6 +99,7 @@ export function buildCity(world) {
 
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat);
       b.position.set(cx, bottom + h / 2, cz);
+      b.castShadow = true; b.receiveShadow = true;
       group.add(b);
       colliders.push({
         min: new THREE.Vector3(cx - w / 2, 0, cz - d / 2),

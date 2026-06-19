@@ -48,6 +48,7 @@ export class GroundCombat {
     const mesh = buildEnforcer();
     mesh.position.copy(pos);
     mesh.position.y = this.groundY(pos.x, pos.z);
+    mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(mesh);
     this.enemies.push({ mesh, hp: 40, cd: 1 + Math.random() * 1.5 });
   }

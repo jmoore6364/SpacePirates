@@ -20,6 +20,8 @@ export class Renderer {
     this.three.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.three.setSize(container.clientWidth, container.clientHeight);
     this.three.setClearColor(0x05060d, 1);
+    this.three.shadowMap.enabled = true;
+    this.three.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.three.domElement);
 
     this.camera = new THREE.PerspectiveCamera(

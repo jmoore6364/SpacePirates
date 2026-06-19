@@ -15,10 +15,17 @@ export class SpaceScene {
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x05060d, 0.00006);
 
-    this.scene.add(new THREE.AmbientLight(0x2a3550, 0.7));
-    const sunLight = new THREE.DirectionalLight(0xfff2dd, 2.2);
+    // sun key + cool rim/back light + faint fill for shape on the ship & planets
+    this.scene.add(new THREE.AmbientLight(0x2a3550, 0.55));
+    const sunLight = new THREE.DirectionalLight(0xfff2dd, 2.4);
     sunLight.position.set(-1500, 600, -1200);
     this.scene.add(sunLight);
+    const rim = new THREE.DirectionalLight(0x4d7bff, 1.1);
+    rim.position.set(1400, -300, 1200);
+    this.scene.add(rim);
+    const fill = new THREE.DirectionalLight(0xff6aa8, 0.35);
+    fill.position.set(400, 800, 1400);
+    this.scene.add(fill);
 
     this.scene.add(makeStarfield());
     this.scene.add(makeSun([-1500, 600, -1200]));

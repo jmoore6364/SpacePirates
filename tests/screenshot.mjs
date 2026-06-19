@@ -289,11 +289,11 @@ async function main() {
       const t = s.interactables.find((i) => i.id === 'shop');
       s.character.position.set(t.position.x, 0, t.position.z + 4);
     });
-    await sleep(250);
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'shop', { timeout: 6000 }).catch(() => {});
     const interactId = await page.evaluate(() => window.__VC__.surface.hud?.interact?.id);
     if (interactId !== 'shop') errors.push(`shop interact not detected (got ${interactId})`);
     await page.keyboard.press('e');
-    await sleep(300);
+    await page.waitForFunction(() => window.__VC__.shop.isOpen === true, { timeout: 6000 }).catch(() => {});
     if (!(await page.evaluate(() => window.__VC__.shop.isOpen))) errors.push('shop did not open');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-shop.png') });
     console.log('› screenshot → pass4-shop.png');
@@ -308,7 +308,7 @@ async function main() {
     if (afterBuy.eng < 1) errors.push('engine upgrade level did not rise');
     console.log(`› bought engine → lvl ${afterBuy.eng}, credits ${creditsBefore}→${afterBuy.credits}`);
     await page.keyboard.press('e'); // close
-    await sleep(250);
+    await page.waitForFunction(() => window.__VC__.shop.isOpen === false, { timeout: 6000 }).catch(() => {});
 
     // Pass 4: mission board — accept a delivery
     await page.evaluate(() => {
@@ -316,9 +316,9 @@ async function main() {
       const t = s.interactables.find((i) => i.id === 'missions');
       s.character.position.set(t.position.x, 0, t.position.z + 4);
     });
-    await sleep(250);
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'missions', { timeout: 6000 }).catch(() => {});
     await page.keyboard.press('e');
-    await sleep(300);
+    await page.waitForFunction(() => window.__VC__.missionBoard.isOpen === true, { timeout: 6000 }).catch(() => {});
     if (!(await page.evaluate(() => window.__VC__.missionBoard.isOpen))) errors.push('mission board did not open');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-missions.png') });
     console.log('› screenshot → pass4-missions.png');
@@ -328,7 +328,7 @@ async function main() {
     if (active < 1) errors.push('mission was not accepted');
     console.log(`› accepted mission → ${active} active`);
     await page.keyboard.press('e'); // close
-    await sleep(250);
+    await page.waitForFunction(() => window.__VC__.missionBoard.isOpen === false, { timeout: 6000 }).catch(() => {});
 
     // Trade: walk to the Market, buy a commodity (deepened economy)
     await page.evaluate(() => {
