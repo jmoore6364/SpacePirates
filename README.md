@@ -1,63 +1,128 @@
 # VOID CORSAIR
 
 A browser 3D **space-pirate** game built with Three.js. Fly your ship between
-worlds, land in neon cities, trade and take missions, upgrade your ship, and
-dogfight bounty hunters across a lawless star cluster.
+worlds, land in neon cities, trade and run missions, upgrade your ship, dogfight
+bounty hunters, and shoot it out with Enforcers on foot — across a lawless star
+cluster.
 
 > *GTA × No Man's Sky × FTL*, stylized and runnable in a browser.
 
-![pass](docs/screenshot.png)
+![Void Corsair](docs/screenshot.png)
 
-## Play
+---
+
+## Quick start
+
+You need **Node 18+** and a WebGL2 browser (Chrome/Edge recommended).
 
 ```bash
 npm install
-npm run dev      # open the printed localhost URL
+npm run dev        # then open the localhost URL it prints (e.g. http://localhost:5173)
 ```
 
-Build / preview a production bundle:
+Production build / preview:
 
 ```bash
 npm run build
-npm run preview
+npm run preview    # serves the optimized bundle
 ```
+
+---
+
+## How to play (your first five minutes)
+
+1. **Launch.** On the title screen press **Enter** (or click **NEW GAME**).
+2. **Fly.** Hold **Space** to throttle up; steer with **W/S** (pitch) and **A/D**
+   (yaw), roll with **Q/E**. Your speed and throttle show top-left; the **radar**
+   (bottom-right) shows worlds (colored blips) and hostiles (red) around you.
+3. **Pick a destination.** Press **M** for the **star map** and press a number to
+   **fast-travel** to a world. You'll arrive at a standoff distance.
+4. **Approach & land.** Fly toward the planet until the green **▸ APPROACH** prompt
+   appears, then press **F** to land. The screen fades and you're on foot.
+5. **Work the city.** Walk with **W/A/S/D**. Three glowing vendors are marked:
+   - **Trader** — buy ship **upgrades** (Engine, Shields, Weapons, Cargo, Hull).
+   - **Market** — **buy/sell commodities** (see Trading below).
+   - **Mission Board** — accept **delivery** and **bounty** contracts.
+   Walk up to one and press **E** to interact; press **E** or **Esc** to leave.
+6. **Take off.** Return to your ship (the landing pad) and press **T** to launch.
+7. **Make money & survive.** Run cargo between worlds, complete contracts, and blast
+   raiders for bounties — but watch your **wanted level**.
+
+---
 
 ## Controls
 
 | Context | Keys |
 |---|---|
-| **Title** | Enter / click — NEW GAME or CONTINUE |
-| **Flight (SPACE)** | `Space` thrust · `Shift` brake · `W/S` pitch · `A/D` yaw · `Q/E` roll |
-| **Combat** | `J` fire lasers (auto-aim lead + light homing) |
-| **Navigate** | `M` star map (pick a world to fast-travel) · `F` land when an APPROACH prompt shows |
-| **On foot (SURFACE)** | `W/A/S/D` walk · `J` blaster · `E` interact at glowing vendors · `T` take off at your ship |
-| **Settings** | `B` bloom on/off · `P` sound on/off (both persist) |
+| **Title** | `Enter` / click — **NEW GAME** or **CONTINUE** |
+| **Flight (SPACE)** | `Space` thrust · `Shift`/`Ctrl` brake · `W`/`S` pitch · `A`/`D` yaw · `Q`/`E` roll |
+| **Space combat** | `J` fire lasers (auto-aim lead + light homing) |
+| **Navigate** | `M` star map (number keys to fast-travel) · `F` land when the APPROACH prompt shows |
+| **On foot (SURFACE)** | `W`/`A`/`S`/`D` walk · `J` blaster · `E` interact at glowing vendors · `T` take off at your ship |
+| **Anytime** | `B` bloom on/off · `P` sound on/off · `Esc` close menus *(both settings persist)* |
 
-## The loop
+---
 
-Fly → approach a world → land → walk the city → trade goods, buy upgrades, take
-jobs → take off → fight or fast-travel → repeat.
+## Reading the HUD
 
-- **Trade:** each world's **Market** prices commodities differently — buy low,
-  haul it (cargo hold capacity = your Cargo upgrade), sell high elsewhere. Spice is
-  contraband and lucrative.
-- **Missions:** delivery jobs pay out when you land at their destination; bounty
-  contracts pay out once you've destroyed enough raiders.
-- **Danger:** kills earn bounties and raise your **wanted level**, which spawns
-  more (and tougher) hunters in space — and if you land somewhere with heat on you,
-  **Enforcers** come for you on foot. Draw your blaster (`J`) and fight or flee.
+- **Top-left:** mode, throttle bar, speed, **credits**, and in combat your
+  **shield (SHD)**, **hull (HUL)**, and **wanted** stars + hostile count.
+- **On foot:** the current world + theme, and (in a firefight) your **HP** bar and
+  enforcer count.
+- **Bottom-right radar:** ship at center, **forward = up**; planet blips are themed
+  colors, hostiles are red. Off-range contacts cling to the rim.
+- **Center prompts/toasts:** approach/landing/interact hints and event news.
 
-Credits, upgrades, cargo, completed jobs, and settings are saved to `localStorage`.
+---
+
+## Systems
+
+**The core loop:** Fly → approach a world → land → trade / upgrade / take jobs →
+take off → fight or fast-travel → repeat.
+
+- **Trading.** Each world's **Market** prices six commodities differently, and
+  prices drift over time with **shortage ▲ / surplus ▼** events (watch the NEWS
+  toast on landing). Buy low, haul it — limited by your **Cargo** hold — and sell
+  high elsewhere. **Spice** is contraband: high value, flagged illegal.
+- **Missions.** **Delivery** jobs pay out when you land at the destination.
+  **Bounty** contracts pay out once you've destroyed enough raiders. Up to 4 active.
+- **Ship upgrades.** Engine (top speed), Shields, Weapons, Cargo, Hull — bought at
+  the Trader; effects apply on your next launch.
+- **Space combat.** Lasers with auto-aim lead + light homing. Enemies come in three
+  archetypes: fast/fragile **Scouts**, balanced **Raiders**, and slow/tanky
+  high-bounty **Gunships**. The mix escalates with your wanted level.
+- **Wanted level & on-foot danger.** Kills earn bounties and raise your **wanted
+  level**, spawning more and tougher hunters in space. Land somewhere with heat on
+  you and **Enforcers** ambush you on foot — draw your blaster (`J`) and fight or
+  run for your ship.
+- **Saving.** Credits, upgrades, cargo, completed jobs, and settings persist in
+  `localStorage`. **CONTINUE** resumes; **NEW GAME** wipes the save.
 
 ## Worlds
 
-Neon Haven (cyberpunk port) · Dust Reach (desert frontier) · Cryo Station (ice
-labs) · Verdant (jungle, high security) · The Maw (asteroid stronghold).
+**Neon Haven** (cyberpunk port) · **Dust Reach** (desert frontier) · **Cryo
+Station** (ice labs) · **Verdant** (jungle, high security) · **The Maw** (asteroid
+stronghold).
+
+---
+
+## Roadmap
+
+Tracked as GitHub issues — contributions welcome:
+
+- [#1 Planetary terrain](https://github.com/jmoore6364/SpacePirates/issues/1) — replace the flat city ground with real low-poly terrain.
+- [#2 Lighting & atmosphere](https://github.com/jmoore6364/SpacePirates/issues/2) — richer per-world lighting, shadows, day/night.
+- [#3 Follow markers / waypoints](https://github.com/jmoore6364/SpacePirates/issues/3) — on-screen markers to mission targets, vendors, and your ship.
+- [#4 Storylines & quests](https://github.com/jmoore6364/SpacePirates/issues/4) — a branching narrative with named NPCs and a campaign.
+
+See the full [issue tracker](https://github.com/jmoore6364/SpacePirates/issues).
+
+---
 
 ## Architecture
 
-Game logic is kept renderer-agnostic behind a thin `Renderer` boundary so a custom
-WebGL engine can be swapped in later (see `docs/ENGINE-ROADMAP.md`).
+Game logic is kept renderer-agnostic behind a thin `Renderer` boundary, so a custom
+WebGL engine could be swapped in later (see `docs/ENGINE-ROADMAP.md`).
 
 ```
 src/
@@ -65,9 +130,9 @@ src/
   core/       GameLoop, GameState (scene state machine), Input, cameras
   scenes/     SpaceScene, SurfaceScene, props, city builder
   entities/   Ship, Character
-  systems/    Combat, Audio (procedural WebAudio)
-  game/       Player (economy/upgrades/save), Missions
-  ui/         StarMap, Panels (shop/missions), TitleScreen
+  systems/    Combat, GroundCombat, Audio (procedural WebAudio)
+  game/       Player (economy/upgrades/save), Missions, Market
+  ui/         StarMap, Panels (shop/market/missions), TitleScreen
   world/      Worlds (canonical world data)
   util/       math
 docs/         DESIGN.md, ENGINE-ROADMAP.md, PACKAGING.md
@@ -78,21 +143,24 @@ tests/        logic/ (node:test) + screenshot.mjs (Playwright→Edge self-test)
 
 ```bash
 npm test           # logic unit tests + headless screenshot self-test
-npm run test:logic # node:test — math, economy, missions
+npm run test:logic # node:test — math, economy, missions, trading
 npm run test:shot  # builds, serves, drives the game in headless Edge, screenshots
 ```
 
-The screenshot harness plays through the whole game — title → flight → combat →
-star map → landing → walking → shop → missions → takeoff — capturing each scene to
-`test-screenshots/` and failing on any console/WebGL error. Only *feel* needs a human.
+The screenshot harness plays the whole game — title → flight → space combat →
+star map → landing → on-foot combat → shop → missions → market → takeoff — saving a
+shot of each scene to `test-screenshots/` and failing on any console/WebGL error.
+Only *feel* (handling, difficulty, fun) needs a human.
 
 ## Status
 
-Passes 0–6 complete (scaffold, flight, worlds/travel, landing + on-foot city, city
-life/economy, combat, juice/systems). Pass 7 (Electron → Windows `.exe` / Steam) is
-optional — see `docs/PACKAGING.md`.
+Core game complete: scaffold, arcade flight, 5 worlds + star-map travel, landing +
+on-foot city, economy (upgrades/missions/trading), space **and** on-foot combat,
+radar, and juice (bloom, screen shake, procedural audio, title, save/load). Desktop
+packaging (Electron → `.exe`/Steam) is optional — see `docs/PACKAGING.md`. Next up:
+see the [Roadmap](#roadmap).
 
 ## Credits
 
-Built with [Three.js](https://threejs.org/). Art is procedural/low-poly; audio is
-synthesized at runtime (no external assets).
+Built with [Three.js](https://threejs.org/). All art is procedural/low-poly and all
+audio is synthesized at runtime — no external assets.
