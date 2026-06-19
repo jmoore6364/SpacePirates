@@ -81,14 +81,30 @@ async function main() {
     });
     if (gl !== 'ok') errors.push(`webgl check failed: ${gl}`);
 
-    // let the planet spin a bit, then capture
-    await sleep(1200);
-    const shot = path.join(SHOT_DIR, 'pass0-planet.png');
+    // resting frame
+    await sleep(600);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-rest.png') });
+
+    // fly: full throttle + a banking turn, then capture motion
+    await page.evaluate(() => {
+      const i = window.__VC__?.input;
+      if (i) { i.press('Space'); i.press('ArrowLeft'); i.press('KeyQ'); }
+    });
+    await sleep(2200);
+    const shot = path.join(SHOT_DIR, 'pass1-flight.png');
     await page.screenshot({ path: shot });
     console.log(`› screenshot → ${shot}`);
 
-    const fps = await page.evaluate(() => window.__VC__?.loop?.fps ?? 0);
-    console.log(`› reported fps: ${fps}`);
+    const telem = await page.evaluate(() => {
+      const s = window.__VC__?.scenes?.current;
+      return {
+        fps: window.__VC__?.loop?.fps ?? 0,
+        speed: Math.round(s?.hud?.speed ?? 0),
+        throttle: Math.round((s?.hud?.throttle ?? 0) * 100),
+      };
+    });
+    console.log(`› telemetry: ${telem.fps} fps, throttle ${telem.throttle}%, speed ${telem.speed} u/s`);
+    if (telem.speed < 50) errors.push(`ship not moving (speed=${telem.speed})`);
   } finally {
     if (browser) await browser.close();
     server.kill();
