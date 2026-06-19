@@ -5,11 +5,14 @@ import { Character } from '../entities/Character.js';
 import { ThirdPersonCamera } from '../core/ThirdPersonCamera.js';
 import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
+import { GroundCombat } from '../systems/GroundCombat.js';
 
 export class SurfaceScene {
-  constructor(input, world) {
+  constructor(input, world, threat = 0) {
     this.input = input;
     this.world = world;
+    this.threat = threat;
+    this.onEvent = null; // main sets this for toasts
     this.scene = new THREE.Scene();
 
     const atmo = new THREE.Color(world.atmo);
@@ -47,6 +50,13 @@ export class SurfaceScene {
     this._addVendor('missions', 'Mission Board', new THREE.Vector3(-22, 0, -6), 0x66e0ff);
     this._addVendor('market', 'Market', new THREE.Vector3(0, 0, -26), 0xff5db1);
     this._addAmbientNPCs();
+
+    // on-foot blaster combat — enforcers come if you landed with heat on you
+    this.ground = new GroundCombat(this.scene, this.character, input, {
+      spawn: city.spawn.clone(),
+      onEvent: (e) => { if (this.onEvent) this.onEvent(e); },
+    });
+    if (threat > 0) this.ground.spawnWave(Math.min(threat + 1, 6));
 
     this.cam = null;
     this._enginePulse = 0;
@@ -137,6 +147,8 @@ export class SurfaceScene {
       if (d < nd) { nd = d; near = it; }
     }
 
+    this.ground.update(dt);
+
     const distToPad = Math.hypot(this.character.position.x, this.character.position.z);
 
     this.hud = {
@@ -145,6 +157,7 @@ export class SurfaceScene {
       nearShip: distToPad < 16,
       moving: this.character.moving,
       interact: near && nd < 7 ? { id: near.id, label: near.label } : null,
+      ground: this.ground.hudData(),
     };
   }
 

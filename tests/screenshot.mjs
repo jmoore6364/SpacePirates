@@ -243,6 +243,29 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
     console.log('› screenshot → pass3-walk.png');
 
+    // On-foot blaster combat: spawn an enforcer in front and gun it down
+    await page.evaluate(() => {
+      const s = window.__VC__.surface; const g = s.ground; const c = s.character;
+      g.enemies.forEach((e) => s.scene.remove(e.mesh)); g.enemies = [];
+      const h = c.heading;
+      const v = c.position.clone();
+      v.x += Math.sin(h) * 18; v.z += Math.cos(h) * 18; v.y = 0;
+      g.spawnEnforcer(v);
+    });
+    const enfBefore = await page.evaluate(() => window.__VC__.surface.ground.enemies.length);
+    const credBefore = await page.evaluate(() => window.__VC__.player.credits);
+    await page.evaluate(() => window.__VC__.input.press('KeyJ'));
+    await page.waitForFunction(() => window.__VC__.surface.ground.enemies.length === 0, { timeout: 9000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass9-onfoot.png') });
+    await page.evaluate(() => window.__VC__.input.release('KeyJ'));
+    const onfoot = await page.evaluate(() => ({
+      enemies: window.__VC__.surface.ground.enemies.length,
+      credits: window.__VC__.player.credits,
+    }));
+    console.log(`› on-foot combat: enforcers ${enfBefore}→${onfoot.enemies}, credits ${credBefore}→${onfoot.credits}`);
+    if (onfoot.enemies !== 0) errors.push('on-foot: enforcer not eliminated by blaster');
+    console.log('› screenshot → pass9-onfoot.png');
+
     // Pass 4: trader shop — walk to the trader, open, buy an upgrade
     await page.evaluate(() => {
       const s = window.__VC__.surface;

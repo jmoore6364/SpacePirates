@@ -30,7 +30,7 @@ npm run preview
 | **Flight (SPACE)** | `Space` thrust · `Shift` brake · `W/S` pitch · `A/D` yaw · `Q/E` roll |
 | **Combat** | `J` fire lasers (auto-aim lead + light homing) |
 | **Navigate** | `M` star map (pick a world to fast-travel) · `F` land when an APPROACH prompt shows |
-| **On foot (SURFACE)** | `W/A/S/D` walk · `E` interact at glowing vendors · `T` take off at your ship |
+| **On foot (SURFACE)** | `W/A/S/D` walk · `J` blaster · `E` interact at glowing vendors · `T` take off at your ship |
 | **Settings** | `B` bloom on/off · `P` sound on/off (both persist) |
 
 ## The loop
@@ -44,7 +44,8 @@ jobs → take off → fight or fast-travel → repeat.
 - **Missions:** delivery jobs pay out when you land at their destination; bounty
   contracts pay out once you've destroyed enough raiders.
 - **Danger:** kills earn bounties and raise your **wanted level**, which spawns
-  more hunters.
+  more (and tougher) hunters in space — and if you land somewhere with heat on you,
+  **Enforcers** come for you on foot. Draw your blaster (`J`) and fight or flee.
 
 Credits, upgrades, cargo, completed jobs, and settings are saved to `localStorage`.
 

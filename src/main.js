@@ -112,8 +112,17 @@ function transition(midFn) {
 }
 
 function land(world) {
+  const threat = space?.combat?.wanted || 0;
   transition(() => {
-    surface = new SurfaceScene(input, world);
+    surface = new SurfaceScene(input, world, threat);
+    surface.onEvent = (e) => {
+      switch (e.type) {
+        case 'blaster': audio.laser(); break;
+        case 'playerHurt': audio.hit(); break;
+        case 'enforcerDown': audio.explosion(); toast(`Enforcer down — +${e.bounty} cr`); break;
+        case 'playerDown': audio.explosion(); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
+      }
+    };
     scenes.switchTo(Mode.SURFACE, surface);
     // advance the living economy each time you make planetfall
     const news = tickMarket(WORLDS);
@@ -122,9 +131,12 @@ function land(world) {
     if (done.length) {
       const sum = done.reduce((a, m) => a + m.reward, 0);
       toast(`Delivered ${done.length} job(s) at ${world.name} — +${sum} cr`);
-    } else if (news) {
+    }
+    if (threat > 0) {
+      toast(`Heat ${threat}★ — Enforcers are hunting you here! [J] blaster`);
+    } else if (!done.length && news) {
       toast(`NEWS: ${commodityLabel(news)}`);
-    } else {
+    } else if (!done.length) {
       toast(`Touchdown — ${world.name}. [E] interact · [T] take off`);
     }
   });
@@ -267,8 +279,16 @@ function renderHud() {
   if (h.onFoot) {
     el.throttle.textContent = `◈ ${h.world.name}`;
     el.speed.textContent = h.world.theme;
-    el.combat.innerHTML = '';
     el.radar.classList.remove('show');
+    const gr = h.ground;
+    if (gr && (gr.hp < gr.maxHp || gr.enemies > 0)) {
+      const k = Math.round(clamp01(gr.hp / gr.maxHp) * 12);
+      el.combat.innerHTML =
+        `<div class="hl">HP  [${'█'.repeat(k)}${'·'.repeat(12 - k)}] ${Math.round(gr.hp)}</div>` +
+        (gr.enemies ? `<div class="hl">⚠ ${gr.enemies} enforcer${gr.enemies > 1 ? 's' : ''}</div>` : '');
+    } else {
+      el.combat.innerHTML = '';
+    }
     if (h.interact) {
       el.approach.innerHTML = `▸ Press <b>E</b> — ${h.interact.label}`;
       el.approach.classList.add('show');
