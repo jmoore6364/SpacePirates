@@ -5,7 +5,10 @@ import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
+import { Shop, MissionBoard } from './ui/Panels.js';
 import { WORLDS } from './world/Worlds.js';
+import { player } from './game/Player.js';
+import { MissionLog, generateOffers } from './game/Missions.js';
 
 const container = document.getElementById('app');
 const renderer = new Renderer(container);
@@ -19,6 +22,7 @@ const el = {
   speed: document.getElementById('hud-speed'),
   approach: document.getElementById('hud-approach'),
   toast: document.getElementById('hud-toast'),
+  credits: document.getElementById('hud-credits'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -26,6 +30,13 @@ const el = {
 let space = null;
 let surface = null;
 let busy = false; // true during a fade transition
+let panel = null; // open DOM panel (shop / missions)
+
+const missionLog = new MissionLog(player);
+const offersByWorld = {};
+
+const shop = new Shop({ onClose: () => { panel = null; if (surface) surface.inputLocked = false; } });
+const missionBoard = new MissionBoard({ onClose: () => { panel = null; if (surface) surface.inputLocked = false; } });
 
 function enterSpace(worldId) {
   space = new SpaceScene(input);
@@ -60,8 +71,24 @@ function land(world) {
   transition(() => {
     surface = new SurfaceScene(input, world);
     scenes.switchTo(Mode.SURFACE, surface);
-    toast(`Touchdown — ${world.name}. [WASD] walk · [T] take off`);
+    const done = missionLog.arriveAt(world.id);
+    if (done.length) {
+      const sum = done.reduce((a, m) => a + m.reward, 0);
+      toast(`Delivered ${done.length} job(s) at ${world.name} — +${sum} cr`);
+    } else {
+      toast(`Touchdown — ${world.name}. [E] interact · [T] take off`);
+    }
   });
+}
+
+function openInteract(world, kind) {
+  surface.inputLocked = true;
+  if (kind === 'shop') { shop.open(player); panel = shop; }
+  else {
+    const offers = offersByWorld[world.id] || (offersByWorld[world.id] = generateOffers(world.id));
+    missionBoard.open(player, missionLog, offers);
+    panel = missionBoard;
+  }
 }
 
 function takeoff(world) {
@@ -81,6 +108,13 @@ function toast(msg) {
 // --- UI / mode keys (single-press) ---
 window.addEventListener('keydown', (e) => {
   if (e.repeat || e.metaKey || e.ctrlKey || busy) return;
+
+  // a DOM panel grabs E/Esc to close
+  if (panel) {
+    if (e.code === 'KeyE' || e.code === 'Escape') { panel.close(); e.preventDefault(); }
+    return;
+  }
+
   switch (e.code) {
     case 'KeyM':
       if (scenes.mode !== Mode.SPACE && !starMap.isOpen) break; // map is space-only
@@ -100,6 +134,11 @@ window.addEventListener('keydown', (e) => {
     case 'KeyT':
       if (scenes.mode === Mode.SURFACE && surface && surface.hud?.nearShip) takeoff(surface.world);
       break;
+    case 'KeyE':
+      if (scenes.mode === Mode.SURFACE && surface?.hud?.interact) {
+        openInteract(surface.world, surface.hud.interact.id);
+      }
+      break;
     default:
       if (starMap.isOpen && /^Digit[1-9]$/.test(e.code)) {
         starMap.select(Number(e.code.slice(5)) - 1);
@@ -113,17 +152,21 @@ let hudTimer = 0;
 function renderHud() {
   el.mode.textContent = `MODE: ${scenes.mode}`;
   el.fps.textContent = `${loop.fps} fps`;
+  el.credits.textContent = `${player.credits} cr`;
   const h = scenes.current?.hud;
   if (!h) return;
 
   if (h.onFoot) {
     el.throttle.textContent = `◈ ${h.world.name}`;
     el.speed.textContent = h.world.theme;
-    if (h.nearShip) {
+    if (h.interact) {
+      el.approach.innerHTML = `▸ Press <b>E</b> — ${h.interact.label}`;
+      el.approach.classList.add('show');
+    } else if (h.nearShip) {
       el.approach.innerHTML = `▸ At your ship — press <b>T</b> to take off`;
       el.approach.classList.add('show');
     } else {
-      el.approach.innerHTML = `<span class="lo">[WASD] walk the city · return to your ship to take off</span>`;
+      el.approach.innerHTML = `<span class="lo">[WASD] walk · [E] interact at glowing vendors · [T] take off at ship</span>`;
       el.approach.classList.add('show');
     }
   } else {
@@ -165,6 +208,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap,
+  player, missionLog, shop, missionBoard,
   get space() { return space; },
   get surface() { return surface; },
   land, takeoff,

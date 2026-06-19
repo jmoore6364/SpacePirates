@@ -1,0 +1,71 @@
+// Renderer-agnostic mission system. Delivery missions are generated at a world's
+// mission board (destination = some other world) and complete when the player
+// lands at the destination, paying out credits. Active missions persist in memory
+// for the session (kept simple; could be saved alongside Player later).
+import { WORLDS } from '../world/Worlds.js';
+
+const CARGO = ['med-gel', 'reactor cores', 'spice crates', 'salvaged tech', 'contraband', 'star maps'];
+
+let _idCounter = 1;
+function nextId() { return `m${_idCounter++}`; }
+
+// Deterministic-enough offers per origin world, regenerated when first viewed.
+export function generateOffers(fromWorldId, count = 3) {
+  const others = WORLDS.filter((w) => w.id !== fromWorldId);
+  const offers = [];
+  for (let k = 0; k < count && others.length; k++) {
+    const to = others[(k * 2 + 1) % others.length];
+    const cargo = CARGO[(k + fromWorldId.length) % CARGO.length];
+    const dist = Math.round(distanceBetween(fromWorldId, to.id) / 10);
+    const reward = 150 + dist * 4 + k * 40;
+    offers.push({
+      id: nextId(),
+      type: 'delivery',
+      from: fromWorldId,
+      to: to.id,
+      toName: to.name,
+      cargo,
+      reward,
+      title: `Deliver ${cargo} to ${to.name}`,
+    });
+  }
+  return offers;
+}
+
+function distanceBetween(aId, bId) {
+  const a = WORLDS.find((w) => w.id === aId);
+  const b = WORLDS.find((w) => w.id === bId);
+  if (!a || !b) return 0;
+  const dx = a.position[0] - b.position[0];
+  const dy = a.position[1] - b.position[1];
+  const dz = a.position[2] - b.position[2];
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+export class MissionLog {
+  constructor(player) {
+    this.player = player;
+    this.active = [];
+  }
+
+  has(id) { return this.active.some((m) => m.id === id); }
+
+  accept(mission) {
+    if (this.active.length >= 4) return { ok: false, reason: 'Mission log full (4 max).' };
+    if (this.has(mission.id)) return { ok: false, reason: 'Already accepted.' };
+    this.active.push(mission);
+    return { ok: true };
+  }
+
+  // Call on arrival at a world; completes & pays any deliveries bound here.
+  arriveAt(worldId) {
+    const done = this.active.filter((m) => m.to === worldId);
+    for (const m of done) {
+      this.player.addCredits(m.reward);
+      if (!this.player.completed.includes(m.id)) this.player.completed.push(m.id);
+    }
+    this.active = this.active.filter((m) => m.to !== worldId);
+    this.player.save();
+    return done; // list of completed missions (for toast/UI)
+  }
+}

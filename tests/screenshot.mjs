@@ -63,9 +63,9 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 
     page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(`console.error: ${m.text()}`);
+      if (m.type() === 'error') { errors.push(`console.error: ${m.text()}`); console.log(`  [console] ${m.text()}`); }
     });
-    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    page.on('pageerror', (e) => { errors.push(`pageerror: ${e.message}`); console.log(`  [pageerror] ${e.message}`); });
 
     console.log(`› loading ${URL}`);
     await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
@@ -164,6 +164,53 @@ async function main() {
     if (walked < 3) errors.push(`character did not walk (moved ${walked.toFixed(1)})`);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
     console.log('› screenshot → pass3-walk.png');
+
+    // Pass 4: trader shop — walk to the trader, open, buy an upgrade
+    await page.evaluate(() => {
+      const s = window.__VC__.surface;
+      const t = s.interactables.find((i) => i.id === 'shop');
+      s.character.position.set(t.position.x, 0, t.position.z + 4);
+    });
+    await sleep(250);
+    const interactId = await page.evaluate(() => window.__VC__.surface.hud?.interact?.id);
+    if (interactId !== 'shop') errors.push(`shop interact not detected (got ${interactId})`);
+    await page.keyboard.press('e');
+    await sleep(300);
+    if (!(await page.evaluate(() => window.__VC__.shop.isOpen))) errors.push('shop did not open');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-shop.png') });
+    console.log('› screenshot → pass4-shop.png');
+    const creditsBefore = await page.evaluate(() => window.__VC__.player.credits);
+    await page.evaluate(() => document.querySelector('[data-buy="engine"]')?.click());
+    await sleep(150);
+    const afterBuy = await page.evaluate(() => ({
+      credits: window.__VC__.player.credits,
+      eng: window.__VC__.player.level('engine'),
+    }));
+    if (!(afterBuy.credits < creditsBefore)) errors.push('upgrade did not deduct credits');
+    if (afterBuy.eng < 1) errors.push('engine upgrade level did not rise');
+    console.log(`› bought engine → lvl ${afterBuy.eng}, credits ${creditsBefore}→${afterBuy.credits}`);
+    await page.keyboard.press('e'); // close
+    await sleep(250);
+
+    // Pass 4: mission board — accept a delivery
+    await page.evaluate(() => {
+      const s = window.__VC__.surface;
+      const t = s.interactables.find((i) => i.id === 'missions');
+      s.character.position.set(t.position.x, 0, t.position.z + 4);
+    });
+    await sleep(250);
+    await page.keyboard.press('e');
+    await sleep(300);
+    if (!(await page.evaluate(() => window.__VC__.missionBoard.isOpen))) errors.push('mission board did not open');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-missions.png') });
+    console.log('› screenshot → pass4-missions.png');
+    await page.evaluate(() => document.querySelector('[data-take]')?.click());
+    await sleep(150);
+    const active = await page.evaluate(() => window.__VC__.missionLog.active.length);
+    if (active < 1) errors.push('mission was not accepted');
+    console.log(`› accepted mission → ${active} active`);
+    await page.keyboard.press('e'); // close
+    await sleep(250);
 
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });

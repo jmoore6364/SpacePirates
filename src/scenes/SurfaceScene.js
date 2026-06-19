@@ -41,10 +41,56 @@ export class SurfaceScene {
     this.character.heading = Math.PI; // face the city
     this.scene.add(this.character.object);
 
+    // vendors / interactables + ambient NPCs
+    this.interactables = [];
+    this._addVendor('shop', 'Trader', new THREE.Vector3(22, 0, -2), 0xffe6a0);
+    this._addVendor('missions', 'Mission Board', new THREE.Vector3(-22, 0, -6), 0x66e0ff);
+    this._addAmbientNPCs();
+
     this.cam = null;
     this._enginePulse = 0;
+    this._npcPulse = 0;
     this.hud = {};
-    this.requestTakeoff = false;
+  }
+
+  _addVendor(id, label, pos, color) {
+    const npc = makeNPC(color);
+    npc.position.copy(pos);
+    npc.lookAt(0, npc.position.y, 0);
+    this.scene.add(npc);
+
+    // glowing beacon pylon so the vendor reads from a distance
+    const pylon = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.18, 5, 8),
+      new THREE.MeshBasicMaterial({ color }),
+    );
+    pylon.position.set(pos.x, 2.5, pos.z);
+    this.scene.add(pylon);
+    const orb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 12, 12),
+      new THREE.MeshBasicMaterial({ color }),
+    );
+    orb.position.set(pos.x, 5.2, pos.z);
+    this.scene.add(orb);
+    const pl = new THREE.PointLight(color, 1.4, 30);
+    pl.position.copy(orb.position);
+    this.scene.add(pl);
+
+    this.interactables.push({ id, label, position: pos.clone(), orb });
+  }
+
+  _addAmbientNPCs() {
+    const palette = [0x8a93a8, 0x6f7fa8, 0xb5723a, 0x3f8f5a, 0x9a6fb0];
+    this.ambient = [];
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      const rad = 26 + (i % 3) * 9;
+      const npc = makeNPC(palette[i % palette.length]);
+      npc.position.set(Math.cos(a) * rad, 0, Math.sin(a) * rad - 30);
+      npc.rotation.y = a;
+      this.scene.add(npc);
+      this.ambient.push({ npc, base: npc.position.clone(), phase: i });
+    }
   }
 
   onEnter(renderer) {
@@ -73,7 +119,23 @@ export class SurfaceScene {
     const eng = this.parkedShip.object.userData.engine;
     if (eng) eng.scale.setScalar(0.5 + Math.sin(this._enginePulse) * 0.06);
 
-    // distance from the pad to prompt takeoff
+    // vendor orbs bob; ambient NPCs sway
+    this._npcPulse += dt;
+    for (const it of this.interactables) {
+      it.orb.position.y = 5.2 + Math.sin(this._npcPulse * 2 + it.position.x) * 0.25;
+    }
+    for (const a of this.ambient) {
+      a.npc.position.y = Math.abs(Math.sin(this._npcPulse * 1.5 + a.phase)) * 0.12;
+      a.npc.rotation.y += dt * 0.2;
+    }
+
+    // nearest interactable in reach
+    let near = null, nd = Infinity;
+    for (const it of this.interactables) {
+      const d = Math.hypot(this.character.position.x - it.position.x, this.character.position.z - it.position.z);
+      if (d < nd) { nd = d; near = it; }
+    }
+
     const distToPad = Math.hypot(this.character.position.x, this.character.position.z);
 
     this.hud = {
@@ -81,6 +143,7 @@ export class SurfaceScene {
       onFoot: true,
       nearShip: distToPad < 16,
       moving: this.character.moving,
+      interact: near && nd < 7 ? { id: near.id, label: near.label } : null,
     };
   }
 
@@ -93,4 +156,22 @@ export class SurfaceScene {
       }
     });
   }
+}
+
+// Simple low-poly NPC (lighter than the player figure).
+function makeNPC(color) {
+  const g = new THREE.Group();
+  const suit = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.2 });
+  const visor = new THREE.MeshStandardMaterial({ color: 0x111820, emissive: 0x224455, emissiveIntensity: 1, roughness: 0.3 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.6, 1.2, 5, 10), suit);
+  body.position.y = 1.5;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 10), suit);
+  head.position.y = 2.5;
+  g.add(head);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8, 0, Math.PI), visor);
+  face.position.set(0, 2.5, 0.26);
+  face.rotation.x = Math.PI / 2;
+  g.add(face);
+  return g;
 }

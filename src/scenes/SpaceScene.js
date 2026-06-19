@@ -6,6 +6,7 @@ import { Ship } from '../entities/Ship.js';
 import { ChaseCamera } from '../core/ChaseCamera.js';
 import { makeStarfield, makePlanet, makeSun } from './props.js';
 import { WORLDS } from '../world/Worlds.js';
+import { player } from '../game/Player.js';
 
 export class SpaceScene {
   constructor(input) {
@@ -29,6 +30,7 @@ export class SpaceScene {
     });
 
     this.ship = new Ship();
+    this.ship.maxSpeed = player.stats().maxSpeed; // apply engine upgrades
     this.scene.add(this.ship.object);
 
     this.chase = null;
