@@ -9,8 +9,14 @@ import { clamp } from '../util/math.js';
 const FWD = new THREE.Vector3(0, 0, -1);
 const PROJ_SPEED = 760;
 const PROJ_LIFE = 1.6;
-const ENEMY_FIRE_RANGE = 360;
 const SHIELD_REGEN = 8; // per second after a lull
+
+// Enemy archetypes — distinct feel and threat. Mix is gated by wanted level.
+export const ENEMY_TYPES = {
+  scout:   { name: 'Scout',   hp: 18, speed: 175, ideal: 150, range: 300, fireCd: 1.7, dmg: 6,  bounty: 45,  scale: 0.8, color: 0x66e0ff, strafe: 0.95 },
+  raider:  { name: 'Raider',  hp: 34, speed: 120, ideal: 180, range: 360, fireCd: 1.4, dmg: 9,  bounty: 70,  scale: 1.0, color: 0xff5b6e, strafe: 0.6 },
+  gunship: { name: 'Gunship', hp: 84, speed: 78,  ideal: 230, range: 440, fireCd: 1.0, dmg: 17, bounty: 150, scale: 1.7, color: 0xffa23c, strafe: 0.2 },
+};
 
 export class Combat {
   constructor(scene, ship, input, { onEvent } = {}) {
@@ -114,42 +120,54 @@ export class Combat {
       (Math.random() - 0.5) * 320,
     );
     const pos = this.ship.position.clone().add(ahead).add(jitter);
-    this._spawnEnemy(pos);
+    this._spawnEnemy(pos, this._pickType());
   }
 
-  _spawnEnemy(pos) {
-    const mesh = buildEnemyMesh();
+  // Weighted by wanted level: scouts/raiders early, gunships once heat builds.
+  _pickType() {
+    const w = this.wanted;
+    const r = Math.random();
+    if (w >= 2 && r < 0.12 + w * 0.06) return 'gunship';
+    if (r < 0.45) return 'scout';
+    return 'raider';
+  }
+
+  _spawnEnemy(pos, typeKey = 'raider') {
+    const type = ENEMY_TYPES[typeKey] || ENEMY_TYPES.raider;
+    const mesh = buildEnemyMesh(type);
     mesh.position.copy(pos);
     this.scene.add(mesh);
-    this.enemies.push({ mesh, vel: new THREE.Vector3(), hp: 30 + this.wanted * 6, cd: 1 + Math.random() });
+    this.enemies.push({
+      mesh, type, vel: new THREE.Vector3(),
+      hp: type.hp + this.wanted * 4,
+      cd: 0.6 + Math.random() * type.fireCd,
+    });
   }
 
   _updateEnemies(dt) {
     for (const e of this.enemies) {
+      const t = e.type;
       const toPlayer = this._tmp.copy(this.ship.position).sub(e.mesh.position);
       const dist = toPlayer.length();
       toPlayer.normalize();
 
-      // face the player and keep a fighting distance
+      // face the player and keep this type's preferred fighting distance
       const desired = this._tmp2.copy(e.mesh.position);
-      const ideal = 180;
-      const speed = 120;
-      if (dist > ideal + 30) desired.addScaledVector(toPlayer, speed * dt);
-      else if (dist < ideal - 30) desired.addScaledVector(toPlayer, -speed * dt);
+      if (dist > t.ideal + 30) desired.addScaledVector(toPlayer, t.speed * dt);
+      else if (dist < t.ideal - 30) desired.addScaledVector(toPlayer, -t.speed * dt);
       else {
-        // strafe sideways for a dogfight feel
         const side = new THREE.Vector3(toPlayer.z, 0, -toPlayer.x);
-        desired.addScaledVector(side, speed * 0.6 * dt);
+        desired.addScaledVector(side, t.speed * t.strafe * dt);
       }
       e.mesh.position.copy(desired);
       e.mesh.lookAt(this.ship.position);
 
       // fire at the player
       e.cd -= dt;
-      if (dist < ENEMY_FIRE_RANGE && e.cd <= 0) {
-        e.cd = 1.4 + Math.random() * 0.8;
+      if (dist < t.range && e.cd <= 0) {
+        e.cd = t.fireCd + Math.random() * 0.6;
         const dir = this._tmp2.copy(this.ship.position).sub(e.mesh.position).normalize();
-        this._spawnProjectile(e.mesh.position.clone().addScaledVector(dir, 3), dir.clone(), true, 8 + this.wanted);
+        this._spawnProjectile(e.mesh.position.clone().addScaledVector(dir, 3), dir.clone(), true, t.dmg + this.wanted);
       }
     }
   }
@@ -191,7 +209,8 @@ export class Combat {
         }
       } else {
         for (const e of this.enemies) {
-          if (segDistSq(e.mesh.position, from, to) < 8 * 8) {
+          const r = 7 * (e.type?.scale || 1);
+          if (segDistSq(e.mesh.position, from, to) < r * r) {
             e.hp -= p.dmg;
             this._spark(to, 0x66e0ff, 0.5);
             hit = true;
@@ -219,9 +238,9 @@ export class Combat {
     this.enemies = this.enemies.filter((x) => x !== e);
     this.kills += 1;
     this.wanted = clamp(Math.floor(this.kills / 2), 0, 5);
-    const bounty = 60 + this.wanted * 20;
+    const bounty = (e.type?.bounty || 60) + this.wanted * 10;
     player.addCredits(bounty);
-    this.onEvent({ type: 'kill', bounty });
+    this.onEvent({ type: 'kill', bounty, enemy: e.type?.name });
   }
 
   _damagePlayer(dmg) {
@@ -321,18 +340,45 @@ function segDistSq(p, a, b) {
   return dx * dx + dy * dy + dz * dz;
 }
 
-function buildEnemyMesh() {
+function buildEnemyMesh(type) {
   const g = new THREE.Group();
-  const hull = new THREE.MeshStandardMaterial({ color: 0x6e2a33, roughness: 0.5, metalness: 0.6 });
-  const glow = new THREE.MeshBasicMaterial({ color: 0xff5b6e });
-  const body = new THREE.Mesh(new THREE.ConeGeometry(1.1, 4.4, 6), hull);
-  body.rotation.x = -Math.PI / 2;
-  g.add(body);
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.2, 1.2), hull);
-  wing.position.z = 0.6;
-  g.add(wing);
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), glow);
-  eye.position.set(0, 0, -1.6);
-  g.add(eye);
+  const tint = new THREE.Color(type.color).multiplyScalar(0.4).getHex();
+  const hull = new THREE.MeshStandardMaterial({ color: tint, roughness: 0.5, metalness: 0.6 });
+  const glow = new THREE.MeshBasicMaterial({ color: type.color });
+
+  if (type.name === 'Scout') {
+    // small dart
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.4, 5), hull);
+    body.rotation.x = -Math.PI / 2;
+    g.add(body);
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.15, 0.9), hull);
+    fin.position.z = 0.8; g.add(fin);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8), glow);
+    eye.position.set(0, 0, -1.3); g.add(eye);
+  } else if (type.name === 'Gunship') {
+    // bulky cruiser with twin nacelles + two eyes
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 5.2), hull);
+    g.add(body);
+    for (const sx of [-2.2, 2.2]) {
+      const nac = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 4, 8), hull);
+      nac.rotation.x = Math.PI / 2; nac.position.set(sx, 0, 0); g.add(nac);
+    }
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.4, 2.2), hull);
+    wing.position.z = 0.4; g.add(wing);
+    for (const sx of [-0.9, 0.9]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), glow);
+      eye.position.set(sx, 0.2, -2.6); g.add(eye);
+    }
+  } else {
+    // raider (default)
+    const body = new THREE.Mesh(new THREE.ConeGeometry(1.1, 4.4, 6), hull);
+    body.rotation.x = -Math.PI / 2; g.add(body);
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.2, 1.2), hull);
+    wing.position.z = 0.6; g.add(wing);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), glow);
+    eye.position.set(0, 0, -1.6); g.add(eye);
+  }
+
+  g.scale.setScalar(type.scale);
   return g;
 }

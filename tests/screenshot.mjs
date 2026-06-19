@@ -128,6 +128,30 @@ async function main() {
       ['Space', 'ArrowLeft', 'KeyQ'].forEach((c) => i.release(c));
     });
 
+    // Enemy variety: spawn one of each archetype for a showcase
+    await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat;
+      s.ship.throttle = 0; s.ship.velocity.set(0, 0, 0);
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = [];
+      c._spawnCd = 999;
+      const f = s.ship.forward();
+      const base = s.ship.position.clone().addScaledVector(f, 150);
+      ['scout', 'raider', 'gunship'].forEach((tk, i) => {
+        const p = base.clone(); p.x += (i - 1) * 70;
+        c._spawnEnemy(p, tk);
+      });
+    });
+    await sleep(300);
+    const variety = await page.evaluate(() => {
+      const c = window.__VC__.space.combat;
+      return { n: c.enemies.length, hps: c.enemies.map((e) => e.hp), names: c.enemies.map((e) => e.type.name) };
+    });
+    console.log(`› enemy variety: ${JSON.stringify(variety.names)} hp=${JSON.stringify(variety.hps)}`);
+    if (variety.n !== 3) errors.push(`enemy variety spawn count ${variety.n}`);
+    if (new Set(variety.hps).size < 3) errors.push('enemy archetypes not distinct (hp)');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass8-enemies.png') });
+    console.log('› screenshot → pass8-enemies.png');
+
     // Pass 5: combat — halt, place a target dead ahead, open fire
     await page.evaluate(() => {
       const s = window.__VC__.space;
