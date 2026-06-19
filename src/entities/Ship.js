@@ -8,8 +8,9 @@ import { clamp } from '../util/math.js';
 const FWD = new THREE.Vector3(0, 0, -1);
 
 export class Ship {
-  constructor() {
-    this.object = buildShipMesh();
+  constructor(hullId = 'corsair') {
+    this.hullId = hullId;
+    this.object = buildShipMesh(hullId);
 
     this.velocity = new THREE.Vector3();
     this.throttle = 0;            // 0..1
@@ -73,46 +74,64 @@ export class Ship {
   }
 }
 
-function buildShipMesh() {
+const HULL_LOOK = {
+  corsair:     { body: 0x9fb3c8, accent: 0xff5db1, engine: 0x66e0ff, wing: 3.6, scale: 1.0 },
+  interceptor: { body: 0x8fd8e6, accent: 0x66e0ff, engine: 0x9effff, wing: 4.4, scale: 0.85 },
+  freighter:   { body: 0xb9a489, accent: 0xffb066, engine: 0xffd24a, wing: 2.6, scale: 1.45 },
+  gunship:     { body: 0x8a6e74, accent: 0xff5b6e, engine: 0xff8a3c, wing: 5.0, scale: 1.35 },
+};
+
+function buildShipMesh(hullId = 'corsair') {
+  const L = HULL_LOOK[hullId] || HULL_LOOK.corsair;
   const group = new THREE.Group();
 
-  const hullMat = new THREE.MeshStandardMaterial({ color: 0x9fb3c8, roughness: 0.5, metalness: 0.6 });
-  const accentMat = new THREE.MeshStandardMaterial({ color: 0xff5db1, roughness: 0.4, metalness: 0.3, emissive: 0x3a0a23, emissiveIntensity: 1 });
+  const hullMat = new THREE.MeshStandardMaterial({ color: L.body, roughness: 0.5, metalness: 0.6 });
+  const accentMat = new THREE.MeshStandardMaterial({ color: L.accent, roughness: 0.4, metalness: 0.3, emissive: 0x220a18, emissiveIntensity: 1 });
   const glassMat = new THREE.MeshStandardMaterial({ color: 0x102030, roughness: 0.1, metalness: 0.9, emissive: 0x0a1c2a, emissiveIntensity: 1 });
-  const engineMat = new THREE.MeshBasicMaterial({ color: 0x66e0ff });
+  const engineMat = new THREE.MeshBasicMaterial({ color: L.engine });
 
-  // fuselage (cone pointing -Z forward)
-  const body = new THREE.Mesh(new THREE.ConeGeometry(0.9, 4.2, 8), hullMat);
-  body.rotation.x = -Math.PI / 2;
+  // fuselage — boxy for the freighter, sleek cone otherwise
+  let body;
+  if (hullId === 'freighter') {
+    body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.6, 4.6), hullMat);
+  } else if (hullId === 'gunship') {
+    body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.2, 4.6, 8), hullMat);
+    body.rotation.x = -Math.PI / 2;
+  } else {
+    body = new THREE.Mesh(new THREE.ConeGeometry(0.9, 4.2, 8), hullMat);
+    body.rotation.x = -Math.PI / 2;
+  }
   group.add(body);
 
-  // cockpit
   const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10, 0, Math.PI * 2, 0, Math.PI / 1.6), glassMat);
   cockpit.position.set(0, 0.35, -0.6);
   cockpit.rotation.x = Math.PI / 2;
   group.add(cockpit);
 
-  // wings
-  const wingGeo = new THREE.BoxGeometry(3.6, 0.12, 1.3);
-  const wing = new THREE.Mesh(wingGeo, accentMat);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(L.wing, 0.14, 1.3), accentMat);
   wing.position.set(0, -0.1, 0.7);
   group.add(wing);
+  if (hullId === 'gunship') { // twin weapon pods
+    for (const sx of [-L.wing / 2, L.wing / 2]) {
+      const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2.4, 8), hullMat);
+      pod.rotation.x = Math.PI / 2; pod.position.set(sx, -0.1, 0.2); group.add(pod);
+    }
+  }
 
-  // tail fin
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 1.0), accentMat);
   fin.position.set(0, 0.5, 1.4);
   group.add(fin);
 
-  // engine glow at the back (+Z)
   const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 0.4, 12), engineMat);
   engine.rotation.x = Math.PI / 2;
   engine.position.set(0, -0.05, 2.05);
   group.add(engine);
   group.userData.engine = engine;
 
-  const engineLight = new THREE.PointLight(0x66e0ff, 2, 12);
+  const engineLight = new THREE.PointLight(L.engine, 2, 12);
   engineLight.position.set(0, 0, 2.4);
   group.add(engineLight);
 
+  group.scale.setScalar(L.scale);
   return group;
 }

@@ -3,6 +3,7 @@
 // All read/write the shared player + mission log and call onClose so the scene
 // can unlock input.
 import { UPGRADES, SKILLS } from '../game/Player.js';
+import { HULLS } from '../game/Hulls.js';
 import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById } from '../game/Market.js';
 
 const commodityName = (id) => commodityById(id)?.name || id;
@@ -175,6 +176,37 @@ export class Skills extends BasePanel {
     this.root.querySelectorAll('[data-skill]').forEach((b) => b.addEventListener('click', () => {
       if (p.spendSkill(b.dataset.skill)) { this.render(); this.onChange && this.onChange(); }
     }));
+  }
+}
+
+export class Shipyard extends BasePanel {
+  constructor(opts) { super('vc-shipyard', opts); }
+
+  open(player) { this.player = player; this.isOpen = true; this.root.classList.add('open'); this.render(); }
+
+  render() {
+    const p = this.player;
+    const rows = HULLS.map((h) => {
+      const owned = p.ownsHull(h.id);
+      const active = p.hull === h.id;
+      const b = h.base;
+      const stat = `spd ${b.maxSpeed} · hull ${b.hull} · shield ${b.shield} · wpn ${b.weapon} · cargo ${b.cargo}`;
+      let btn;
+      if (active) btn = '<span class="vc-tag">ACTIVE</span>';
+      else if (owned) btn = `<button class="vc-btn" data-equip="${h.id}">EQUIP</button>`;
+      else btn = `<button class="vc-btn" data-buyhull="${h.id}" ${p.credits >= h.price ? '' : 'disabled'}>${h.price} cr</button>`;
+      return `<div class="vc-row" style="grid-template-columns:1fr auto">
+        <div><div class="nm">${h.name}</div><div class="ds">${h.desc}</div>
+        <div class="ds" style="color:#9fe7ff">${stat}</div></div>
+        <div>${btn}</div></div>`;
+    }).join('');
+    this.root.innerHTML = `<div class="vc-panel">
+      <div class="vc-head"><div class="vc-title">◈ SHIPYARD</div><div class="vc-credits">${p.credits} cr</div></div>
+      <div class="vc-sub">Buy and switch hulls. New hull applies on your next launch. [E]/[Esc] to leave.</div>
+      ${rows}</div>`;
+    const refresh = () => { this.render(); this.onChange && this.onChange(); };
+    this.root.querySelectorAll('[data-buyhull]').forEach((b) => b.addEventListener('click', () => { if (p.buyHull(b.dataset.buyhull)) refresh(); }));
+    this.root.querySelectorAll('[data-equip]').forEach((b) => b.addEventListener('click', () => { if (p.setHull(b.dataset.equip)) refresh(); }));
   }
 }
 

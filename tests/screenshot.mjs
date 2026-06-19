@@ -220,6 +220,8 @@ async function main() {
     console.log(`› skills: level ${sk.lvl}, gunnery ${sk.was}→${sk.gun}`);
     await page.keyboard.press('Escape'); // close
     await page.waitForFunction(() => window.__VC__.skills.isOpen === false, { timeout: 5000 }).catch(() => {});
+    // grant credits so the later Shipyard purchase is affordable
+    await page.evaluate(() => window.__VC__.player.addCredits(8000));
     // clear the field + heal so combat doesn't disrupt later scenes
     await page.evaluate(() => {
       const s = window.__VC__.space; const c = s.combat;
@@ -435,6 +437,30 @@ async function main() {
     if (quest.active !== 'maw-job') errors.push('quest did not start from Vex');
     if (quest.step < 1) errors.push('quest did not advance past the intro step');
     console.log('› screenshot → pass4-dialogue.png');
+
+    // #9 Shipyard: buy a different hull and confirm stats change
+    await page.evaluate(() => {
+      const s = window.__VC__.surface;
+      const v = s.interactables.find((i) => i.id === 'shipyard');
+      if (v) s.character.position.set(v.position.x, 0, v.position.z + 4);
+    });
+    const hasYard = await page.evaluate(() => !!window.__VC__.surface.interactables.find((i) => i.id === 'shipyard'));
+    if (!hasYard) errors.push('shipyard vendor not present');
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'shipyard', { timeout: 6000 }).catch(() => {});
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__VC__.shipyard.isOpen === true, { timeout: 6000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass9-shipyard.png') });
+    const yard = await page.evaluate(() => {
+      const p = window.__VC__.player;
+      const cargoBefore = p.stats().cargo;
+      const ok = p.buyHull('freighter');
+      return { ok, hull: p.hull, cargoBefore, cargoAfter: p.stats().cargo };
+    });
+    if (!yard.ok || yard.hull !== 'freighter') errors.push('could not buy/equip a new hull');
+    if (!(yard.cargoAfter > yard.cargoBefore)) errors.push('hull swap did not change stats');
+    console.log(`› shipyard: hull=${yard.hull}, cargo ${yard.cargoBefore}→${yard.cargoAfter}`);
+    await page.keyboard.press('e'); // close
+    await page.waitForFunction(() => window.__VC__.shipyard.isOpen === false, { timeout: 6000 }).catch(() => {});
 
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });

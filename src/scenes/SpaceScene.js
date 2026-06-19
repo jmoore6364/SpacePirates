@@ -37,8 +37,8 @@ export class SpaceScene {
       return g;
     });
 
-    this.ship = new Ship();
-    this.ship.maxSpeed = player.stats().maxSpeed; // apply engine upgrades
+    this.ship = new Ship(player.hull);
+    this.ship.maxSpeed = player.stats().maxSpeed; // apply hull + engine + skills
     this.scene.add(this.ship.object);
 
     this.onEvent = null; // main sets this for toasts / audio

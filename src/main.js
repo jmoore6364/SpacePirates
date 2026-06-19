@@ -5,7 +5,7 @@ import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
-import { Shop, MissionBoard, Market, Dialogue, Skills } from './ui/Panels.js';
+import { Shop, MissionBoard, Market, Dialogue, Skills, Shipyard } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { WORLDS } from './world/Worlds.js';
@@ -71,6 +71,8 @@ const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
 const skills = new Skills({ onClose: closePanel });
 skills.onChange = () => audio.blip();
+const shipyard = new Shipyard({ onClose: closePanel });
+shipyard.onChange = () => audio.blip();
 
 // Award XP and surface level-ups.
 function awardXp(n) {
@@ -225,6 +227,7 @@ function openInteract(world, kind) {
   audio.blip();
   if (kind === 'shop') { shop.open(player); panel = shop; }
   else if (kind === 'market') { market.open(player, world); panel = market; }
+  else if (kind === 'shipyard') { shipyard.open(player); panel = shipyard; }
   else {
     const offers = offersByWorld[world.id] || (offersByWorld[world.id] = generateOffers(world.id));
     missionBoard.open(player, missionLog, offers);
@@ -590,7 +593,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen, menu,
-  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },

@@ -1,6 +1,8 @@
 // Renderer-agnostic player economy + ship upgrades. Persists to localStorage when
 // available (guarded so it stays unit-testable under Node). Upgrade levels feed
 // derived ship stats the scenes read.
+import { HULLS, hullById } from './Hulls.js';
+
 export const UPGRADES = {
   engine:  { name: 'Engine',  desc: 'Top speed',      max: 5, baseCost: 200, mult: 1.6, per: 90  },
   shields: { name: 'Shields', desc: 'Damage soak',    max: 5, baseCost: 250, mult: 1.7, per: 25  },
@@ -20,6 +22,8 @@ const DEFAULTS = () => ({
   xpLevel: 1,
   skillPoints: 0,
   skills: { piloting: 0, gunnery: 0, trading: 0, engineering: 0 },
+  hull: 'corsair',
+  hullsOwned: ['corsair'],
 });
 
 // Skill tree (data-driven). Each level adds a flat perk to a derived stat.
@@ -52,6 +56,7 @@ export class Player {
         credits: this.credits, upgrades: this.upgrades, completed: this.completed,
         cargo: this.cargo, questState: this.questState,
         xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
+        hull: this.hull, hullsOwned: this.hullsOwned,
       }));
     } catch { /* storage full / disabled — ignore */ }
   }
@@ -99,6 +104,27 @@ export class Player {
   // Trade margin bonus from the Trading skill (0..0.15).
   tradeBonus() { return this.skillLevel('trading') * 0.03; }
 
+  // --- ship hulls ---
+  activeHull() { return hullById(this.hull); }
+  ownsHull(id) { return this.hullsOwned.includes(id); }
+
+  buyHull(id) {
+    const def = HULLS.find((h) => h.id === id);
+    if (!def || this.ownsHull(id) || this.credits < def.price) return false;
+    this.credits -= def.price;
+    this.hullsOwned.push(id);
+    this.hull = id;
+    this.save();
+    return true;
+  }
+
+  setHull(id) {
+    if (!this.ownsHull(id)) return false;
+    this.hull = id;
+    this.save();
+    return true;
+  }
+
   // --- cargo hold ---
   cargoCap() { return this.stats().cargo; }
   cargoUsed() { return Object.values(this.cargo).reduce((a, q) => a + q, 0); }
@@ -133,14 +159,15 @@ export class Player {
     this.save();
   }
 
-  // Derived ship stats from upgrade levels AND skill perks.
+  // Derived ship stats: active hull base + upgrade levels + skill perks.
   stats() {
+    const b = this.activeHull().base;
     return {
-      maxSpeed: 420 + this.level('engine') * UPGRADES.engine.per + this.skillLevel('piloting') * 30,
-      shield:   this.level('shields') * UPGRADES.shields.per + this.skillLevel('engineering') * 15,
-      weapon:   10 + this.level('weapons') * UPGRADES.weapons.per + this.skillLevel('gunnery') * 4,
-      cargo:    20 + this.level('cargo') * UPGRADES.cargo.per,
-      hull:     100 + this.level('hull') * UPGRADES.hull.per + this.skillLevel('engineering') * 20,
+      maxSpeed: b.maxSpeed + this.level('engine') * UPGRADES.engine.per + this.skillLevel('piloting') * 30,
+      shield:   b.shield + this.level('shields') * UPGRADES.shields.per + this.skillLevel('engineering') * 15,
+      weapon:   b.weapon + this.level('weapons') * UPGRADES.weapons.per + this.skillLevel('gunnery') * 4,
+      cargo:    b.cargo + this.level('cargo') * UPGRADES.cargo.per,
+      hull:     b.hull + this.level('hull') * UPGRADES.hull.per + this.skillLevel('engineering') * 20,
     };
   }
 }

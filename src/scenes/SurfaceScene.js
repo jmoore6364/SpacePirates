@@ -6,6 +6,7 @@ import { ThirdPersonCamera } from '../core/ThirdPersonCamera.js';
 import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
 import { GroundCombat } from '../systems/GroundCombat.js';
+import { player } from '../game/Player.js';
 
 // Per-visit time-of-day phases (a light day/night nudge layered on the world mood).
 const TIME_PHASES = [
@@ -54,7 +55,7 @@ export class SurfaceScene {
     this.heightAt = city.heightAt;
 
     // landed ship on the pad (plaza is flat)
-    this.parkedShip = new Ship();
+    this.parkedShip = new Ship(player.hull);
     this.parkedShip.object.position.copy(city.padPosition).setY(1.4);
     this.parkedShip.object.rotation.set(-0.08, Math.PI * 0.85, 0);
     this.parkedShip.object.scale.setScalar(1.6);
@@ -74,6 +75,7 @@ export class SurfaceScene {
     this._addVendor('shop', 'Trader', new THREE.Vector3(22, 0, -2), 0xffe6a0);
     this._addVendor('missions', 'Mission Board', new THREE.Vector3(-22, 0, -6), 0x66e0ff);
     this._addVendor('market', 'Market', new THREE.Vector3(0, 0, -26), 0xff5db1);
+    this._addVendor('shipyard', 'Shipyard', new THREE.Vector3(34, 0, 14), 0x8effd0);
     // quest-giver NPC appears when there's a job to take or hand off here
     if (questLog && questLog.npcHere('vex', world.id)) {
       this._addVendor('quest', 'Vex', new THREE.Vector3(14, 0, 12), 0xffd24a);
