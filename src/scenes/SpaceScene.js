@@ -98,9 +98,14 @@ export class SpaceScene {
   readControls() {
     const i = this.input;
     if (!i || this.inputLocked) return {};
+    const clampU = (v) => (v < -1 ? -1 : v > 1 ? 1 : v);
+    const m = i.mouseSteer();
+    // mouse: right => yaw right, cursor up => pitch up. Blend with keyboard.
+    const kbPitch = i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']);
+    const kbYaw = i.axis(['ArrowRight', 'KeyD'], ['ArrowLeft', 'KeyA']);
     return {
-      pitch: i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']),
-      yaw: i.axis(['ArrowRight', 'KeyD'], ['ArrowLeft', 'KeyA']),
+      pitch: clampU(kbPitch - m.y),
+      yaw: clampU(kbYaw - m.x),
       roll: i.axis(['KeyE'], ['KeyQ']),
       throttleDelta: i.axis(['ShiftLeft', 'ControlLeft'], ['Space']),
     };

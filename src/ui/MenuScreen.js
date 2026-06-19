@@ -41,6 +41,8 @@ export class MenuScreen {
         <div class="mn-sec">SETTINGS</div>
         <div class="mn-row"><label>Bloom</label>
           <button class="mn-toggle" data-act="bloom">${s.bloom ? 'ON' : 'OFF'}</button></div>
+        <div class="mn-row"><label>Mouse fly</label>
+          <button class="mn-toggle" data-act="mouseflight">${s.mouseFlight ? 'ON' : 'OFF'}</button></div>
         <div class="mn-row"><label>Master</label>
           <input type="range" min="0" max="100" value="${pct(s.master)}" data-vol="master"></div>
         <div class="mn-row"><label>Music</label>
@@ -60,6 +62,7 @@ export class MenuScreen {
     $('[data-act="saves"]').onclick = () => this.onSaves();
     $('[data-act="quit"]').onclick = () => this.onQuit();
     $('[data-act="bloom"]').onclick = () => { this.onChange('bloom', !s.bloom); this._render(); };
+    $('[data-act="mouseflight"]').onclick = () => { this.onChange('mouseFlight', !s.mouseFlight); this._render(); };
     $('[data-act="quality"]').onchange = (e) => { this.onChange('quality', e.target.value); };
     this.root.querySelectorAll('[data-vol]').forEach((el) => {
       el.oninput = (e) => this.onChange(e.target.dataset.vol, Number(e.target.value) / 100);

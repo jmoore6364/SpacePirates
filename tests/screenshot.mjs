@@ -161,6 +161,21 @@ async function main() {
       ['Space', 'ArrowLeft', 'KeyQ'].forEach((c) => i.release(c));
     });
 
+    // mouse-steer: hold the cursor to the right and confirm the ship yaws
+    const yaw0 = await page.evaluate(() => {
+      const q = window.__VC__.space.ship.quaternion; return { x: q.x, y: q.y, z: q.z, w: q.w };
+    });
+    await page.evaluate(() => { window.__VC__.input.setMouse(0.9, 0.0); });
+    await sleep(700);
+    await page.evaluate(() => { window.__VC__.input.setMouse(0, 0); });
+    const yawTurned = await page.evaluate((q0) => {
+      const q = window.__VC__.space.ship.quaternion;
+      const dot = q.x * q0.x + q.y * q0.y + q.z * q0.z + q.w * q0.w;
+      return 1 - Math.abs(dot); // 0 == identical orientation
+    }, yaw0);
+    if (yawTurned < 1e-3) errors.push('mouse steering did not rotate the ship');
+    console.log(`› mouse steer rotated ship: ${yawTurned > 1e-3} (Δ=${yawTurned.toFixed(4)})`);
+
     // Enemy variety: spawn one of each archetype for a showcase
     await page.evaluate(() => {
       const s = window.__VC__.space; const c = s.combat;

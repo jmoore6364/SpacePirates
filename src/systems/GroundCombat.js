@@ -57,7 +57,7 @@ export class GroundCombat {
     this._fireCd -= dt;
     this._hitGrace += dt;
 
-    if (this.input && this.input.isDown('KeyJ')) this.fire();
+    if (this.input && (this.input.firing ? this.input.firing() : this.input.isDown('KeyJ'))) this.fire();
 
     this._updateEnemies(dt);
     this._updateBolts(dt);

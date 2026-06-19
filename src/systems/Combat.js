@@ -56,7 +56,7 @@ export class Combat {
     this._spawnCd -= dt;
     this._hitGrace += dt;
 
-    if (this.input && this.input.isDown('KeyJ')) this.fire();
+    if (this.input && (this.input.firing ? this.input.firing() : this.input.isDown('KeyJ'))) this.fire();
 
     this._spawnWaves(dt);
     this._updateEnemies(dt);

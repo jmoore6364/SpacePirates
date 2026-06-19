@@ -60,7 +60,7 @@ const offersByWorld = {};
 const SETTINGS_KEY = 'voidcorsair.settings.v1';
 const settings = loadSettings();
 function loadSettings() {
-  const def = { bloom: true, muted: false, master: 0.5, music: 0.6, sfx: 1.0, quality: 'high' };
+  const def = { bloom: true, muted: false, master: 0.5, music: 0.6, sfx: 1.0, quality: 'high', mouseFlight: true };
   try { return Object.assign(def, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); }
   catch { return def; }
 }
@@ -96,6 +96,7 @@ function applySetting(key, value) {
   settings[key] = value;
   if (key === 'bloom') renderer.setBloom(value);
   else if (key === 'quality') renderer.setQuality(value);
+  else if (key === 'mouseFlight') input.mouseFlight = value;
   else if (key === 'master' || key === 'music' || key === 'sfx') audio.setVolumes(settings);
   saveSettings();
 }
@@ -593,6 +594,7 @@ renderer.setBloom(settings.bloom);
 renderer.setQuality(settings.quality);
 audio.setVolumes(settings);
 audio.setMuted(settings.muted);
+input.mouseFlight = settings.mouseFlight;
 shop.onChange = () => audio.blip();
 missionBoard.onChange = () => audio.blip();
 market.onChange = () => audio.blip();
