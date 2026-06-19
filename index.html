@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Void Corsair</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #05060d; }
+    #app { position: fixed; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    #hud {
+      position: fixed; inset: 0; pointer-events: none;
+      font-family: "Consolas", "SF Mono", ui-monospace, monospace;
+      color: #9fe7ff; text-shadow: 0 0 6px rgba(80,200,255,0.6);
+    }
+    #hud .corner { position: absolute; padding: 12px 16px; font-size: 13px; letter-spacing: 1px; }
+    #hud .tl { top: 0; left: 0; }
+    #hud .br { bottom: 0; right: 0; opacity: 0.7; }
+    #hud .title { font-size: 18px; font-weight: bold; letter-spacing: 3px; color: #ff5db1; text-shadow: 0 0 10px rgba(255,93,177,0.7); }
+
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-family: ui-monospace, monospace; color: #9fe7ff; font-size: 14px; letter-spacing: 2px;
+      background: #05060d; transition: opacity 0.6s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="hud">
+    <div class="corner tl">
+      <div class="title">VOID CORSAIR</div>
+      <div id="hud-mode">MODE: SPACE</div>
+    </div>
+    <div class="corner br" id="hud-fps">-- fps</div>
+  </div>
+  <div id="loading">INITIALIZING SYSTEMS…</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
