@@ -7,6 +7,7 @@ import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
 import { Shop, MissionBoard, Market, Dialogue } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
+import { MenuScreen } from './ui/MenuScreen.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
@@ -44,6 +45,7 @@ let surface = null;
 let busy = false;    // true during a fade transition
 let panel = null;    // open DOM panel (shop / missions)
 let started = false; // false while the title screen is up
+let paused = false;  // true while the pause menu is open
 
 const audio = new AudioManager();
 const missionLog = new MissionLog(player);
@@ -54,8 +56,9 @@ const offersByWorld = {};
 const SETTINGS_KEY = 'voidcorsair.settings.v1';
 const settings = loadSettings();
 function loadSettings() {
-  try { return Object.assign({ bloom: true, muted: false }, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); }
-  catch { return { bloom: true, muted: false }; }
+  const def = { bloom: true, muted: false, master: 0.5, music: 0.6, sfx: 1.0, quality: 'high' };
+  try { return Object.assign(def, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); }
+  catch { return def; }
 }
 function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
@@ -66,6 +69,27 @@ const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
 const dialogue = new Dialogue({ onClose: closePanel });
+
+function applySetting(key, value) {
+  settings[key] = value;
+  if (key === 'bloom') renderer.setBloom(value);
+  else if (key === 'quality') renderer.setQuality(value);
+  else if (key === 'master' || key === 'music' || key === 'sfx') audio.setVolumes(settings);
+  saveSettings();
+}
+
+function setPaused(p) {
+  paused = p;
+  if (p) menu.open(settings);
+  else menu.close();
+}
+
+const menu = new MenuScreen({
+  onResume: () => setPaused(false),
+  onSave: () => { player.save(); saveSettings(); toast('Game saved.'); },
+  onQuit: () => { player.save(); saveSettings(); window.location.reload(); },
+  onChange: applySetting,
+});
 
 function enterSpace(worldId) {
   space = new SpaceScene(input);
@@ -213,10 +237,13 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat || e.metaKey || e.ctrlKey || busy) return;
 
   // settings toggles work anytime
-  if (e.code === 'KeyB') { settings.bloom = !settings.bloom; renderer.setBloom(settings.bloom); saveSettings(); toast(`Bloom ${settings.bloom ? 'on' : 'off'}`); return; }
+  if (e.code === 'KeyB') { applySetting('bloom', !settings.bloom); toast(`Bloom ${settings.bloom ? 'on' : 'off'}`); if (menu.isOpen) menu.open(settings); return; }
   if (e.code === 'KeyP') { settings.muted = audio.toggleMute(); saveSettings(); toast(`Sound ${settings.muted ? 'off' : 'on'}`); return; }
 
   if (!started) return; // title screen owns input until launch
+
+  // pause menu owns input while open
+  if (menu.isOpen) { if (e.code === 'Escape') setPaused(false); return; }
 
   // a DOM panel grabs E/Esc to close
   if (panel) {
@@ -244,6 +271,7 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'Escape':
       if (starMap.isOpen) { starMap.close(); space.inputLocked = false; scenes.mode = Mode.SPACE; }
+      else setPaused(true);
       break;
     case 'KeyF':
       if (scenes.mode === Mode.SPACE && space && space.approach) land(space.approach.world);
@@ -488,6 +516,7 @@ function renderHud() {
 
 const loop = new GameLoop({
   update: (dt) => {
+    if (paused) return; // freeze the sim; render keeps drawing the last frame
     scenes.update(dt);
     if (toastTimer > 0) {
       toastTimer -= dt;
@@ -502,6 +531,8 @@ const loop = new GameLoop({
 
 // apply persisted settings, blip on shop/mission changes
 renderer.setBloom(settings.bloom);
+renderer.setQuality(settings.quality);
+audio.setVolumes(settings);
 audio.setMuted(settings.muted);
 shop.onChange = () => audio.blip();
 missionBoard.onChange = () => audio.blip();
@@ -532,7 +563,7 @@ requestAnimationFrame(() => {
 });
 
 window.__VC__ = {
-  renderer, scenes, loop, input, starMap, audio, titleScreen,
+  renderer, scenes, loop, input, starMap, audio, titleScreen, menu,
   player, missionLog, questLog, shop, missionBoard, market, dialogue,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },

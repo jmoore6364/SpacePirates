@@ -101,6 +101,16 @@ async function main() {
     await sleep(600);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-rest.png') });
 
+    // #7 pause menu: Esc opens it (freezes sim), Esc resumes
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__VC__.menu.isOpen === true, { timeout: 5000 }).catch(() => {});
+    const paused = await page.evaluate(() => window.__VC__.menu.isOpen);
+    if (!paused) errors.push('pause menu did not open on Escape');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass7-menu.png') });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__VC__.menu.isOpen === false, { timeout: 5000 }).catch(() => {});
+    console.log(`› pause menu opened+resumed: ${paused}`);
+
     // #3 follow markers: the overlay canvas should have drawn something in space
     const markersDrawn = await page.evaluate(() => {
       const c = document.getElementById('markers');

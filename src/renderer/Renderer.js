@@ -61,6 +61,14 @@ export class Renderer {
 
   setBloom(on) { this.bloomEnabled = !!on; }
 
+  // 'low' | 'med' | 'high' — trades pixel ratio + bloom strength for performance
+  setQuality(level) {
+    const cap = level === 'low' ? 0.75 : level === 'med' ? 1 : 2;
+    this.three.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+    this.bloomPass.strength = level === 'low' ? 0.45 : level === 'med' ? 0.65 : 0.85;
+    this.resize();
+  }
+
   addShake(amount) { this.shake = Math.min(this.shake + amount, 3); }
 
   resize() {

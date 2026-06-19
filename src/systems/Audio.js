@@ -7,19 +7,35 @@ export class AudioManager {
     this.muted = false;
     this.master = null;
     this.musicGain = null;
+    this.sfx = null;
     this._musicNodes = [];
+    this._musicOn = false;
+    this.vol = { master: 0.5, music: 0.6, sfx: 1.0 };
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) {
         this.ctx = new AC();
         this.master = this.ctx.createGain();
-        this.master.gain.value = 0.5;
+        this.master.gain.value = this.vol.master;
         this.master.connect(this.ctx.destination);
         this.musicGain = this.ctx.createGain();
         this.musicGain.gain.value = 0.0;
         this.musicGain.connect(this.master);
+        this.sfx = this.ctx.createGain();
+        this.sfx.gain.value = this.vol.sfx;
+        this.sfx.connect(this.master);
       }
     } catch { this.ctx = null; }
+  }
+
+  // volumes in 0..1; master is also gated by mute
+  setVolumes({ master, music, sfx } = {}) {
+    if (master != null) this.vol.master = master;
+    if (music != null) this.vol.music = music;
+    if (sfx != null) this.vol.sfx = sfx;
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.vol.master;
+    if (this.sfx) this.sfx.gain.value = this.vol.sfx;
+    if (this.musicGain && this._musicOn) this.musicGain.gain.value = this.vol.music * 0.6;
   }
 
   // Call from a user gesture to satisfy autoplay policies.
@@ -29,7 +45,7 @@ export class AudioManager {
 
   setMuted(m) {
     this.muted = m;
-    if (this.master) this.master.gain.value = m ? 0 : 0.5;
+    if (this.master) this.master.gain.value = m ? 0 : this.vol.master;
   }
   toggleMute() { this.setMuted(!this.muted); return this.muted; }
 
@@ -37,6 +53,7 @@ export class AudioManager {
 
   _blip({ type = 'sine', freq = 440, dur = 0.12, gain = 0.3, sweep = 0, dest = null }) {
     if (!this.ctx || this.muted) return;
+    dest = dest || this.sfx;
     const t = this._now();
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
@@ -66,7 +83,7 @@ export class AudioManager {
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(filt).connect(g).connect(this.master);
+    src.connect(filt).connect(g).connect(this.sfx || this.master);
     src.start(t);
     src.stop(t + dur);
   }
@@ -101,6 +118,7 @@ export class AudioManager {
       osc.start(t); lfo.start(t);
       this._musicNodes.push(osc, lfo);
     }
-    this.musicGain.gain.setTargetAtTime(0.6, t, 2);
+    this._musicOn = true;
+    this.musicGain.gain.setTargetAtTime(this.vol.music * 0.6, t, 2);
   }
 }
