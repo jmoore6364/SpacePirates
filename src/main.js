@@ -70,7 +70,8 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
 }
 
-const exitLook = () => {}; // no-op (pointer lock removed; mouse turn is cursor-position based)
+// release on-foot mouse-look pointer lock (used when opening UI / leaving the surface)
+const exitLook = () => { if (typeof document !== 'undefined' && document.pointerLockElement) document.exitPointerLock?.(); };
 const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; if (space) space.inputLocked = false; };
 const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
@@ -355,6 +356,24 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// --- on-foot mouse-look pointer lock (FPS-style, click to capture) ---
+// Capturing the pointer lets the mouse turn/aim continuously with no edge limit and
+// hides the OS cursor so only the center reticle shows. Click the view to engage;
+// Esc (or opening any UI) releases it.
+const canvas = renderer.three.domElement;
+let pointerLocked = false;
+document.addEventListener('pointerlockchange', () => {
+  pointerLocked = document.pointerLockElement === canvas;
+});
+function requestLook() {
+  if (pointerLocked) return;
+  if (!started || busy || paused || panel || menu.isOpen || savesPanel.isOpen || starMap.isOpen) return;
+  if (scenes.mode !== Mode.SURFACE) return; // space uses absolute cursor steering
+  if (!input.mouseFlight) return;
+  canvas.requestPointerLock?.();
+}
+canvas.addEventListener('mousedown', (e) => { if (e.button === 0) requestLook(); });
+
 // --- radar scanner ---
 const radarCtx = el.radar.getContext('2d');
 const hex = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
@@ -543,7 +562,9 @@ function renderHud() {
       el.approach.innerHTML = `▸ At your ship — press <b>T</b> to take off`;
       el.approach.classList.add('show');
     } else {
-      el.approach.innerHTML = `<span class="lo">Move mouse to aim the reticle (L/R turn, up/down tilt) · [W/S] walk · [J/click] fire at reticle · [E] interact · [T] take off</span>`;
+      el.approach.innerHTML = pointerLocked
+        ? `<span class="lo">Mouse aims the reticle (L/R turn, up/down tilt) · [W/S] walk · [J/click] fire · [E] interact · [T] take off · [Esc] free cursor</span>`
+        : `<span class="lo">▸ <b>Click</b> to capture the mouse and aim · [W/S] walk · [E] interact · [T] take off</span>`;
       el.approach.classList.add('show');
     }
   } else {
