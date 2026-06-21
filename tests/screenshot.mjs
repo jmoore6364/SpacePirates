@@ -346,6 +346,15 @@ async function main() {
     const yawB = await page.evaluate(() => window.__VC__.surface.lookYaw);
     if (Math.abs(yawB - yawA) < 0.3) errors.push(`mouse turn did not rotate the character (Δ=${(yawB - yawA).toFixed(3)})`);
     console.log(`› land mouse turn: yaw Δ=${(yawB - yawA).toFixed(2)}`);
+
+    // land mouse-look up/down: cursor up tilts the camera up (pitch changes)
+    const camY0 = await page.evaluate(() => window.__VC__.renderer.camera.position.y);
+    await page.evaluate(() => window.__VC__.input.setMouse(0, -0.95)); // cursor at top = look up
+    await sleep(500);
+    const look = await page.evaluate(() => ({ pitch: window.__VC__.surface.cam.pitch, camY: window.__VC__.renderer.camera.position.y }));
+    await page.evaluate(() => { window.__VC__.input.setMouse(0, 0); window.__VC__.input.mouse.active = false; });
+    if (Math.abs(look.pitch) < 0.2) errors.push(`mouse up/down look did not pitch (pitch=${look.pitch.toFixed(2)})`);
+    console.log(`› land look up/down: cam pitch=${look.pitch.toFixed(2)}, camY ${camY0.toFixed(1)}→${look.camY.toFixed(1)}`);
     // forward still works on keys
     // face an open direction first so we don't immediately bump a building
     await page.evaluate(() => { window.__VC__.surface.lookYaw = 0; window.__VC__.surface.character.position.set(0, 0, 18); });

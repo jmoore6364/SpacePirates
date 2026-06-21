@@ -68,6 +68,7 @@ export class SurfaceScene {
     this.character.position.copy(city.spawn).setY(this.heightAt(city.spawn.x, city.spawn.z));
     this.character.heading = Math.PI; // face the city
     this.lookYaw = Math.PI;           // free aim/look yaw (mouse/keys/touch turn it)
+    this.lookPitch = 0;               // free look pitch (mouse-Y / R-F)
     this.character.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(this.character.object);
 
@@ -156,15 +157,16 @@ export class SurfaceScene {
     const tm = i.touchMove;
     const tf = tm && tm.active ? -tm.y : 0;
     const tt = tm && tm.active ? tm.x : 0;
-    // mouse: horizontal cursor offset from center turns you (continuous rate, so
-    // holding it to the edge spins fully around). Vertical is ignored on foot.
-    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0 };
+    // mouse: horizontal cursor offset turns you (continuous), vertical looks up/down.
+    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0, y: 0 };
     return {
       // forward/back is keys (or touch stick Y) — not the mouse
       forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
       // A/D + touch stick X + mouse-X all turn the free look-yaw at a rate
       turn: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt + ms.x),
       strafe: i.axis(['KeyQ'], ['KeyE']),
+      // mouse-Y / R-F look up/down (cursor up = look up = negative)
+      pitch: clampU(ms.y + i.axis(['KeyF'], ['KeyR'])),
     };
   }
 
@@ -172,8 +174,9 @@ export class SurfaceScene {
     const c = this.readControls();
     const TURN_RATE = 2.8; // rad/s at full deflection (hold to edge to spin around)
     this.lookYaw += c.turn * TURN_RATE * dt;
+    this.lookPitch = c.pitch || 0;
     this.character.update(dt, { forward: c.forward, strafe: c.strafe }, this.lookYaw, this.colliders);
-    if (this.cam) this.cam.update(dt, this.character);
+    if (this.cam) this.cam.update(dt, this.character, this.lookPitch);
 
     // parked-ship engine idle flicker
     this._enginePulse += dt * 6;
