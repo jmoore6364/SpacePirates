@@ -20,8 +20,8 @@ export class ThirdPersonCamera {
   // pitch01 in [-1,1]: negative (cursor up) looks UP, positive looks DOWN. The view
   // is steered mostly by the aim point so the camera never clips through the ground.
   update(dt, target, pitch01 = 0) {
-    this.yaw += wrapAngle(target.heading - this.yaw) * clamp(dt * 4, 0, 1);
-    this.pitch += (clamp(pitch01, -1, 1) - this.pitch) * clamp(dt * 8, 0, 1);
+    this.yaw += wrapAngle(target.heading - this.yaw) * clamp(dt * 14, 0, 1);
+    this.pitch += (clamp(pitch01, -1, 1) - this.pitch) * clamp(dt * 10, 0, 1);
 
     // camera trails at a fixed ring; height nudges with pitch but stays above ground
     const ox = -Math.sin(this.yaw) * this.dist;

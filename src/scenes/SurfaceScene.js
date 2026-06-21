@@ -157,22 +157,26 @@ export class SurfaceScene {
     const tm = i.touchMove;
     const tf = tm && tm.active ? -tm.y : 0;
     const tt = tm && tm.active ? tm.x : 0;
-    // mouse: horizontal cursor offset turns you (continuous), vertical looks up/down.
-    const ms = i.mouseSteer ? i.mouseSteer() : { x: 0, y: 0 };
+    // mouse: horizontal cursor offset turns you (continuous, snappy ramp so even a
+    // small offset turns briskly). Negated so cursor-right turns the view right.
+    const mx = (i.mouse && i.mouse.active && i.mouseFlight) ? i.mouse.x : 0;
+    const my = (i.mouse && i.mouse.active && i.mouseFlight) ? i.mouse.y : 0;
+    const dz = 0.05;
+    const ramp = (v) => { const a = Math.abs(v); return a < dz ? 0 : Math.sign(v) * Math.min(1, (a - dz) / 0.45); };
     return {
       // forward/back is keys (or touch stick Y) — not the mouse
       forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
-      // A/D + touch stick X + mouse-X all turn the free look-yaw at a rate
-      turn: clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt + ms.x),
+      // A/D + touch stick X + mouse-X turn the free look-yaw at a rate (sign flipped)
+      turn: -clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt + ramp(mx)),
       strafe: i.axis(['KeyQ'], ['KeyE']),
       // mouse-Y / R-F look up/down (cursor up = look up = negative)
-      pitch: clampU(ms.y + i.axis(['KeyF'], ['KeyR'])),
+      pitch: clampU(ramp(my) + i.axis(['KeyF'], ['KeyR'])),
     };
   }
 
   update(dt) {
     const c = this.readControls();
-    const TURN_RATE = 2.8; // rad/s at full deflection (hold to edge to spin around)
+    const TURN_RATE = 4.5; // rad/s at full deflection — snappy (hold to spin around)
     this.lookYaw += c.turn * TURN_RATE * dt;
     this.lookPitch = c.pitch || 0;
     this.character.update(dt, { forward: c.forward, strafe: c.strafe }, this.lookYaw, this.colliders);
