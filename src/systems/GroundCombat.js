@@ -35,6 +35,13 @@ export class GroundCombat {
       player: new THREE.MeshBasicMaterial({ color: 0x9effa0 }),
       enemy: new THREE.MeshBasicMaterial({ color: 0xff5b6e }),
     };
+
+    // transient hit/impact FX (muzzle flash, sparks, kill bursts) — additive, fading
+    this.fx = [];
+    this._fxGeo = {
+      flash: new THREE.IcosahedronGeometry(1, 0),
+      shard: new THREE.TetrahedronGeometry(0.3),
+    };
   }
 
   get enemyCount() { return this.enemies.length; }
@@ -51,9 +58,16 @@ export class GroundCombat {
     const mesh = buildEnforcer();
     mesh.position.copy(pos);
     mesh.position.y = this.groundY(pos.x, pos.z);
-    mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    // record materials (built fresh per enforcer) so we can flash them red on hit
+    const mats = [];
+    mesh.traverse((o) => {
+      if (o.isMesh) o.castShadow = true;
+      if (o.isMesh && o.material && o.material.emissive) {
+        mats.push({ m: o.material, baseHex: o.material.emissive.getHex(), baseI: o.material.emissiveIntensity });
+      }
+    });
     this.scene.add(mesh);
-    this.enemies.push({ mesh, hp: 40, cd: 1 + Math.random() * 1.5 });
+    this.enemies.push({ mesh, hp: 40, cd: 1 + Math.random() * 1.5, mats, flash: 0 });
   }
 
   update(dt) {
@@ -64,6 +78,7 @@ export class GroundCombat {
 
     this._updateEnemies(dt);
     this._updateBolts(dt);
+    this._updateFx(dt);
     if (this._hitGrace > 4 && this.hp < this.maxHp) {
       this.hp = Math.min(this.maxHp, this.hp + HP_REGEN * dt);
     }
@@ -96,6 +111,7 @@ export class GroundCombat {
     // life chosen so the bolt despawns right as it reaches the reticle point
     const life = Math.min(BOLT_LIFE, (reach - 1.4) / BOLT_SPEED);
     this._spawnBolt(start, dir.clone(), false, player.stats().weapon, life);
+    this._spawnFx('muzzle', start, 0x9effa0);
     this.onEvent({ type: 'blaster' });
   }
 
@@ -143,6 +159,16 @@ export class GroundCombat {
       e.mesh.position.y = this.groundY(e.mesh.position.x, e.mesh.position.z);
       e.mesh.rotation.y = Math.atan2(to.x, to.z);
 
+      // red hit-flash fades back to the enforcer's normal glow
+      if (e.flash > 0) {
+        e.flash = Math.max(0, e.flash - dt);
+        const k = e.flash / 0.14;
+        for (const mm of e.mats) {
+          if (k > 0) { mm.m.emissive.setHex(0xff2030); mm.m.emissiveIntensity = mm.baseI + k * 3; }
+          else { mm.m.emissive.setHex(mm.baseHex); mm.m.emissiveIntensity = mm.baseI; }
+        }
+      }
+
       e.cd -= dt;
       if (dist < 60 && e.cd <= 0) {
         e.cd = 1.6 + Math.random();
@@ -167,6 +193,7 @@ export class GroundCombat {
       if (b.hostile) {
         if (segDistSq(this._tmp2.set(p.x, this.groundY(p.x, p.z) + CHEST, p.z), from, to) < 2.2 * 2.2) {
           this._damagePlayer(b.dmg);
+          this._spawnFx('hit', b.mesh.position.clone(), 0xff5b6e);
           hit = true;
         }
       } else {
@@ -174,6 +201,9 @@ export class GroundCombat {
           const ey = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
           if (segDistSq(this._tmp2.set(e.mesh.position.x, ey, e.mesh.position.z), from, to) < 2.4 * 2.4) {
             e.hp -= b.dmg;
+            e.flash = 0.14; // red impact flash
+            e.mesh.position.add(this._tmp3.copy(b.vel).setY(0).normalize().multiplyScalar(0.6)); // knockback
+            this._spawnFx('hit', b.mesh.position.clone(), 0xff8a5b);
             hit = true;
             if (e.hp <= 0) this._killEnemy(e);
             break;
@@ -182,6 +212,8 @@ export class GroundCombat {
       }
 
       if (hit || b.life <= 0) {
+        // bolt expired at the reticle on the world (no target): leave a small spark
+        if (!hit && !b.hostile) this._spawnFx('surface', b.mesh.position.clone(), 0xfff0c0);
         this.scene.remove(b.mesh);
         b.mesh.geometry.dispose();
         this.bolts.splice(i, 1);
@@ -190,6 +222,8 @@ export class GroundCombat {
   }
 
   _killEnemy(e) {
+    const cy = this.groundY(e.mesh.position.x, e.mesh.position.z) + 1.6;
+    this._spawnFx('kill', this._tmp.set(e.mesh.position.x, cy, e.mesh.position.z).clone(), 0xff5b6e);
     this.scene.remove(e.mesh);
     e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.enemies = this.enemies.filter((x) => x !== e);
@@ -213,6 +247,51 @@ export class GroundCombat {
     for (const e of this.enemies) this.scene.remove(e.mesh);
     this.enemies = [];
     this.onEvent({ type: 'playerDown', penalty });
+  }
+
+  // Spawn a short-lived additive burst. 'kill' adds a flash plus flung shards.
+  _spawnFx(kind, pos, color) {
+    if (kind === 'kill') {
+      this._addFx(this._fxGeo.flash, color, pos, { life: 0.32, from: 0.8, to: 3.4, spin: 4 });
+      for (let k = 0; k < 6; k++) {
+        const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.3, Math.random() - 0.5)
+          .normalize().multiplyScalar(7 + Math.random() * 6);
+        this._addFx(this._fxGeo.shard, color, pos, { life: 0.5, from: 1, to: 0.3, vel: v, grav: -20, spin: 12 });
+      }
+      return;
+    }
+    const cfg = kind === 'muzzle' ? { life: 0.09, from: 0.5, to: 0.05, spin: 6 }
+      : kind === 'hit' ? { life: 0.18, from: 0.3, to: 1.9, spin: 5 }
+      : /* surface */ { life: 0.15, from: 0.2, to: 1.2, spin: 5 };
+    this._addFx(this._fxGeo.flash, color, pos, cfg);
+  }
+
+  _addFx(geo, color, pos, { life, from, to, vel = null, grav = 0, spin = 0 }) {
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    mesh.scale.setScalar(from);
+    this.scene.add(mesh);
+    this.fx.push({ mesh, mat, life, maxLife: life, from, to, vel: vel ? vel.clone() : null, grav, spin });
+  }
+
+  _updateFx(dt) {
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const f = this.fx[i];
+      f.life -= dt;
+      const t = 1 - Math.max(0, f.life) / f.maxLife; // 0 → 1 over its life
+      f.mat.opacity = Math.max(0, 1 - t);
+      f.mesh.scale.setScalar(f.from + (f.to - f.from) * t);
+      if (f.spin) { f.mesh.rotation.x += f.spin * dt; f.mesh.rotation.y += f.spin * dt; }
+      if (f.vel) { f.vel.y += f.grav * dt; f.mesh.position.addScaledVector(f.vel, dt); }
+      if (f.life <= 0) {
+        this.scene.remove(f.mesh);
+        f.mat.dispose();
+        this.fx.splice(i, 1);
+      }
+    }
   }
 
   hudData() {

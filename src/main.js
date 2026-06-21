@@ -202,10 +202,10 @@ function land(world) {
     surface = new SurfaceScene(input, world, threat, questLog);
     surface.onEvent = (e) => {
       switch (e.type) {
-        case 'blaster': audio.laser(); break;
-        case 'playerHurt': audio.hit(); break;
-        case 'enforcerDown': audio.explosion(); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
-        case 'playerDown': audio.explosion(); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
+        case 'blaster': audio.laser(); renderer.addShake(0.06); break; // recoil kick
+        case 'playerHurt': audio.hit(); renderer.addShake(0.4); break;
+        case 'enforcerDown': audio.explosion(); renderer.addShake(0.5); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
+        case 'playerDown': audio.explosion(); renderer.addShake(1.0); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
       }
     };
     scenes.switchTo(Mode.SURFACE, surface);
