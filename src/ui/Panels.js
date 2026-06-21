@@ -42,6 +42,11 @@ function injectStyles() {
     .vc-tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; background:#1b2e52; color:#9fe7ff; }
     .vc-dlg p { font-size: 14px; line-height: 1.6; margin: 0 0 10px; color: #dfeefc; }
     .vc-dlg { margin-bottom: 14px; }
+    .vc-x { position: fixed; top: 14px; right: 14px; z-index: 14;
+      width: 46px; height: 46px; display:flex; align-items:center; justify-content:center;
+      border-radius: 8px; border: 1px solid #3a6ab0; background: rgba(16,40,72,0.92);
+      color: #dff1ff; font-size: 20px; line-height: 1; cursor: pointer; font-family: inherit; }
+    .vc-x:hover { background: #1f4f8c; }
   `;
   document.head.appendChild(s);
 }
@@ -55,6 +60,23 @@ class BasePanel {
     this.root.className = 'vc-overlay';
     this.root.id = id;
     document.body.appendChild(this.root);
+
+    // Tap-to-close affordances — essential on touch, where there's no [Esc]/[E] key
+    // and the overlay covers the on-screen buttons. A persistent ✕ plus tapping the
+    // dim backdrop outside the panel both close it.
+    this._x = document.createElement('button');
+    this._x.className = 'vc-x';
+    this._x.type = 'button';
+    this._x.textContent = '✕';
+    this._x.addEventListener('click', () => this.close());
+    this.root.addEventListener('click', (e) => { if (e.target === this.root) this.close(); });
+    // render() replaces innerHTML (wiping the button) — re-attach it after each change
+    if (typeof MutationObserver !== 'undefined') {
+      this._obs = new MutationObserver(() => {
+        if (this.isOpen && !this.root.contains(this._x)) this.root.appendChild(this._x);
+      });
+      this._obs.observe(this.root, { childList: true });
+    }
   }
   close() {
     this.root.classList.remove('open');

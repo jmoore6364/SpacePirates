@@ -184,6 +184,8 @@ const starMap = new StarMap({
     audio.warp();
     toast(`Warping to ${w.name}… (−${cost} fuel)`);
   },
+  // ✕ / backdrop tap closes the map (touch has no [M]/[Esc]) — return to flight
+  onClose: () => { if (space) space.inputLocked = false; scenes.mode = Mode.SPACE; },
 });
 
 // --- transitions ---

@@ -7,8 +7,9 @@ import { fuelCost } from '../game/Player.js';
 const SUN = [-1500, -1200]; // sun x,z (matches SpaceScene)
 
 export class StarMap {
-  constructor({ onTravel } = {}) {
+  constructor({ onTravel, onClose } = {}) {
     this.onTravel = onTravel || (() => {});
+    this.onClose = onClose || (() => {});
     this.isOpen = false;
     this.worlds = [];
 
@@ -16,6 +17,7 @@ export class StarMap {
     this.root.id = 'starmap';
     this.root.innerHTML = `
       <div class="sm-panel">
+        <button class="sm-x" type="button" aria-label="Close">✕</button>
         <div class="sm-title">◈ STAR MAP</div>
         <div class="sm-sub">Select a destination — number key or click. ◇ mission · ▲▼ market event. [M]/[Esc] close.</div>
         <canvas class="sm-map" width="620" height="300"></canvas>
@@ -25,6 +27,10 @@ export class StarMap {
     document.body.appendChild(this.root);
     this.list = this.root.querySelector('.sm-list');
     this.canvas = this.root.querySelector('.sm-map');
+    // ✕ button and backdrop tap both dismiss (touch has no [M]/[Esc])
+    const dismiss = () => { this.close(); this.onClose(); };
+    this.root.querySelector('.sm-x').addEventListener('click', dismiss);
+    this.root.addEventListener('click', (e) => { if (e.target === this.root) dismiss(); });
     injectStyles();
   }
 
@@ -143,10 +149,16 @@ function injectStyles() {
       font-family: "Consolas", ui-monospace, monospace; color: #cfeaff;
     }
     #starmap .sm-panel {
+      position: relative;
       width: min(700px, 92vw); padding: 22px 26px;
       background: rgba(8,12,24,0.92); border: 1px solid #2d4a78;
       border-radius: 10px; box-shadow: 0 0 40px rgba(60,140,255,0.25);
     }
+    #starmap .sm-x { position: absolute; top: 12px; right: 12px;
+      width: 42px; height: 42px; display:flex; align-items:center; justify-content:center;
+      border-radius: 8px; border: 1px solid #3a6ab0; background: rgba(16,40,72,0.92);
+      color: #dff1ff; font-size: 19px; line-height: 1; cursor: pointer; font-family: inherit; }
+    #starmap .sm-x:hover { background: #1f4f8c; }
     #starmap .sm-title { font-size: 22px; letter-spacing: 4px; color: #ff5db1;
       text-shadow: 0 0 12px rgba(255,93,177,0.6); margin-bottom: 6px; }
     #starmap .sm-sub { font-size: 12px; opacity: 0.6; margin-bottom: 12px; }
