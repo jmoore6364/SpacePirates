@@ -16,11 +16,6 @@ export class Input {
     };
     this._up = (e) => this.keys.delete(e.code);
     this._move = (e) => {
-      if (typeof document !== 'undefined' && document.pointerLockElement) {
-        // pointer-locked: feed relative motion to the on-foot look accumulator
-        this.lookDX += e.movementX || 0;
-        return;
-      }
       const w = window.innerWidth || 1, h = window.innerHeight || 1;
       this.mouse.x = (e.clientX / w) * 2 - 1;
       this.mouse.y = (e.clientY / h) * 2 - 1;

@@ -338,13 +338,14 @@ async function main() {
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass3-walk.png') });
     console.log('› screenshot → pass3-walk.png');
 
-    // land mouse-look: relative mouse motion turns the character (point anywhere)
+    // land mouse-look: holding the cursor to one side turns continuously (look around)
     const yawA = await page.evaluate(() => window.__VC__.surface.lookYaw);
-    await page.evaluate(() => { window.__VC__.input.lookDX += 400; }); // simulate mouse moved right
-    await sleep(500);
+    await page.evaluate(() => window.__VC__.input.setMouse(0.9, 0)); // cursor held right
+    await sleep(600);
+    await page.evaluate(() => { window.__VC__.input.setMouse(0, 0); window.__VC__.input.mouse.active = false; });
     const yawB = await page.evaluate(() => window.__VC__.surface.lookYaw);
-    if (Math.abs(yawB - yawA) < 0.1) errors.push(`mouse-look did not turn the character (Δ=${(yawB - yawA).toFixed(3)})`);
-    console.log(`› land mouse look: yaw Δ=${(yawB - yawA).toFixed(2)}`);
+    if (Math.abs(yawB - yawA) < 0.3) errors.push(`mouse turn did not rotate the character (Δ=${(yawB - yawA).toFixed(3)})`);
+    console.log(`› land mouse turn: yaw Δ=${(yawB - yawA).toFixed(2)}`);
     // forward still works on keys
     // face an open direction first so we don't immediately bump a building
     await page.evaluate(() => { window.__VC__.surface.lookYaw = 0; window.__VC__.surface.character.position.set(0, 0, 18); });

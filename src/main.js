@@ -69,16 +69,8 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
 }
 
-const exitLook = () => { try { if (typeof document !== 'undefined' && document.exitPointerLock) document.exitPointerLock(); } catch { /* ignore */ } };
+const exitLook = () => {}; // no-op (pointer lock removed; mouse turn is cursor-position based)
 const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; if (space) space.inputLocked = false; };
-
-// On foot, click the game to capture the mouse for free look (pointer lock).
-renderer.three.domElement.addEventListener('click', () => {
-  if (started && !paused && !panel && !menu.isOpen && !savesPanel.isOpen
-      && !starMap.isOpen && scenes.mode === Mode.SURFACE && input.mouseFlight) {
-    try { renderer.three.domElement.requestPointerLock?.(); } catch { /* ignore */ }
-  }
-});
 const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
@@ -549,7 +541,7 @@ function renderHud() {
       el.approach.innerHTML = `▸ At your ship — press <b>T</b> to take off`;
       el.approach.classList.add('show');
     } else {
-      el.approach.innerHTML = `<span class="lo">Click to capture mouse-look · [W/S] walk · [A/D]/mouse turn · [J/click] blaster · [E] interact · [T] take off</span>`;
+      el.approach.innerHTML = `<span class="lo">Move mouse L/R to look around · [W/S] walk · [A/D] turn · [J/click] blaster · [E] interact · [T] take off</span>`;
       el.approach.classList.add('show');
     }
   } else {
