@@ -2,6 +2,7 @@
 // available (guarded so it stays unit-testable under Node). Upgrade levels feed
 // derived ship stats the scenes read.
 import { HULLS, hullById } from './Hulls.js';
+import { WEAPONS, weaponById, ARMORS, armorById } from './Weapons.js';
 import { writeSlot, readSlot, mostRecentSlot, migrateLegacy, hasAnySave } from './SaveSlots.js';
 
 export const UPGRADES = {
@@ -26,6 +27,10 @@ const DEFAULTS = () => ({
   hullsOwned: ['corsair'],
   fuel: 100,
   maxFuel: 100,
+  sidearm: 'blaster',           // equipped on-foot weapon
+  sidearmsOwned: ['blaster'],
+  armor: 'flightsuit',          // equipped on-foot armor
+  armorsOwned: ['flightsuit'],
 });
 
 // Fuel a fast-travel jump costs, by travel distance (manual flight is free).
@@ -59,6 +64,8 @@ export class Player {
       xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
       hull: this.hull, hullsOwned: this.hullsOwned,
       fuel: this.fuel, maxFuel: this.maxFuel,
+      sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
+      armor: this.armor, armorsOwned: this.armorsOwned,
     };
   }
 
@@ -140,6 +147,49 @@ export class Player {
   setHull(id) {
     if (!this.ownsHull(id)) return false;
     this.hull = id;
+    this.save();
+    return true;
+  }
+
+  // --- on-foot weapons & armor (Armory) ---
+  groundWeapon() { return weaponById(this.sidearm); }
+  groundArmor() { return armorById(this.armor); }
+  ownsWeapon(id) { return this.sidearmsOwned.includes(id); }
+  ownsArmor(id) { return this.armorsOwned.includes(id); }
+
+  // On-foot bolt damage: weapon base + Gunnery skill perk.
+  sidearmDamage() { return this.groundWeapon().dmg + this.skillLevel('gunnery') * 4; }
+
+  buyWeapon(id) {
+    const def = WEAPONS.find((w) => w.id === id);
+    if (!def || this.ownsWeapon(id) || this.credits < def.price) return false;
+    this.credits -= def.price;
+    this.sidearmsOwned.push(id);
+    this.sidearm = id;
+    this.save();
+    return true;
+  }
+
+  setWeapon(id) {
+    if (!this.ownsWeapon(id)) return false;
+    this.sidearm = id;
+    this.save();
+    return true;
+  }
+
+  buyArmor(id) {
+    const def = ARMORS.find((a) => a.id === id);
+    if (!def || this.ownsArmor(id) || this.credits < def.price) return false;
+    this.credits -= def.price;
+    this.armorsOwned.push(id);
+    this.armor = id;
+    this.save();
+    return true;
+  }
+
+  setArmor(id) {
+    if (!this.ownsArmor(id)) return false;
+    this.armor = id;
     this.save();
     return true;
   }

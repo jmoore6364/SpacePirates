@@ -546,6 +546,28 @@ async function main() {
     await page.keyboard.press('e'); // close
     await page.waitForFunction(() => window.__VC__.shipyard.isOpen === false, { timeout: 6000 }).catch(() => {});
 
+    // #16 Armory: buy + equip a new on-foot weapon
+    await page.evaluate(() => {
+      const s = window.__VC__.surface;
+      const v = s.interactables.find((i) => i.id === 'armory');
+      if (v) s.character.position.set(v.position.x, 0, v.position.z + 4);
+    });
+    const hasArmory = await page.evaluate(() => !!window.__VC__.surface.interactables.find((i) => i.id === 'armory'));
+    if (!hasArmory) errors.push('armory vendor not present');
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'armory', { timeout: 6000 }).catch(() => {});
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__VC__.armory.isOpen === true, { timeout: 6000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass16-armory.png') });
+    const arm = await page.evaluate(() => {
+      const p = window.__VC__.player;
+      const ok = p.buyWeapon('scatter');
+      return { ok, sidearm: p.sidearm, dmg: p.sidearmDamage() };
+    });
+    if (!arm.ok || arm.sidearm !== 'scatter') errors.push('could not buy/equip a new weapon');
+    console.log(`› armory: weapon=${arm.sidearm}, bolt dmg ${arm.dmg}`);
+    await page.keyboard.press('e'); // close
+    await page.waitForFunction(() => window.__VC__.armory.isOpen === false, { timeout: 6000 }).catch(() => {});
+
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });
     await page.waitForFunction(() => window.__VC__.surface?.hud?.nearShip === true, { timeout: 5000 });

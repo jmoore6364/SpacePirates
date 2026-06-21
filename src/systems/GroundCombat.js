@@ -22,8 +22,10 @@ export class GroundCombat {
     this.colliders = colliders || []; // city AABBs, used to stop bolts at the reticle
     this.camera = null;               // set by the scene; defines the screen-center ray
 
-    this.maxHp = 100;
-    this.hp = 100;
+    const armor = player.groundArmor();
+    this.maxHp = armor.hp;
+    this.hp = armor.hp;
+    this.regen = armor.regen || HP_REGEN;
     this.enemies = [];
     this.bolts = [];
     this._fireCd = 0;
@@ -80,13 +82,15 @@ export class GroundCombat {
     this._updateBolts(dt);
     this._updateFx(dt);
     if (this._hitGrace > 4 && this.hp < this.maxHp) {
-      this.hp = Math.min(this.maxHp, this.hp + HP_REGEN * dt);
+      this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
     }
   }
 
   fire() {
     if (this._fireCd > 0) return;
-    this._fireCd = 0.22;
+    const w = player.groundWeapon();
+    this._fireCd = w.cd;
+    const dmg = player.sidearmDamage();
     const cp = this.character.position;
     const muzzle = this._tmp.set(cp.x, this.groundY(cp.x, cp.z) + CHEST, cp.z);
 
@@ -106,12 +110,16 @@ export class GroundCombat {
 
     const toTarget = target.sub(muzzle);
     const reach = Math.max(2, toTarget.length());
-    const dir = toTarget.multiplyScalar(1 / reach); // normalized
-    const start = muzzle.clone().addScaledVector(dir, 1.4);
-    // life chosen so the bolt despawns right as it reaches the reticle point
-    const life = Math.min(BOLT_LIFE, (reach - 1.4) / BOLT_SPEED);
-    this._spawnBolt(start, dir.clone(), false, player.stats().weapon, life);
-    this._spawnFx('muzzle', start, 0x9effa0);
+    const aim = toTarget.multiplyScalar(1 / reach); // normalized aim direction
+    const start = muzzle.clone().addScaledVector(aim, 1.4);
+
+    // one bolt, or a spread of pellets for scatter-type weapons
+    for (let k = 0; k < (w.pellets || 1); k++) {
+      const dir = w.spread ? scatter(aim, w.spread) : aim.clone();
+      const life = Math.min(BOLT_LIFE, (reach - 1.4) / w.speed);
+      this._spawnBolt(start, dir, false, dmg, life, w.speed, w.color);
+    }
+    this._spawnFx('muzzle', start, w.color);
     this.onEvent({ type: 'blaster' });
   }
 
@@ -135,15 +143,19 @@ export class GroundCombat {
     return best;
   }
 
-  _spawnBolt(pos, dir, hostile, dmg, life = BOLT_LIFE) {
-    const mesh = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.18, 1.4, 2, 6),
-      hostile ? this._mat.enemy : this._mat.player,
-    );
+  _spawnBolt(pos, dir, hostile, dmg, life = BOLT_LIFE, speed = BOLT_SPEED, color = null) {
+    const mat = hostile ? this._mat.enemy : (color != null ? this._boltMat(color) : this._mat.player);
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 1.4, 2, 6), mat);
     mesh.position.copy(pos);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     this.scene.add(mesh);
-    this.bolts.push({ mesh, vel: dir.clone().multiplyScalar(BOLT_SPEED), life, hostile, dmg });
+    this.bolts.push({ mesh, vel: dir.clone().multiplyScalar(speed), life, hostile, dmg });
+  }
+
+  // Shared bolt material per colour so each weapon's bolts read distinctly.
+  _boltMat(color) {
+    this._boltMats = this._boltMats || {};
+    return this._boltMats[color] || (this._boltMats[color] = new THREE.MeshBasicMaterial({ color }));
   }
 
   _updateEnemies(dt) {
@@ -297,6 +309,16 @@ export class GroundCombat {
   hudData() {
     return { hp: this.hp, maxHp: this.maxHp, enemies: this.enemies.length };
   }
+}
+
+// Perturb a unit direction within a cone of `spread` radians (scatter weapons).
+function scatter(dir, spread) {
+  const up = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const right = new THREE.Vector3().crossVectors(dir, up).normalize();
+  const realUp = new THREE.Vector3().crossVectors(right, dir).normalize();
+  const a = (Math.random() * 2 - 1) * spread;
+  const b = (Math.random() * 2 - 1) * spread;
+  return dir.clone().addScaledVector(right, Math.tan(a)).addScaledVector(realUp, Math.tan(b)).normalize();
 }
 
 // Nearest positive ray/AABB hit distance, or null. (slab method)

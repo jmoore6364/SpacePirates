@@ -4,6 +4,7 @@
 // can unlock input.
 import { UPGRADES, SKILLS } from '../game/Player.js';
 import { HULLS } from '../game/Hulls.js';
+import { WEAPONS, ARMORS } from '../game/Weapons.js';
 import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById, refuel, FUEL_PRICE } from '../game/Market.js';
 
 const commodityName = (id) => commodityById(id)?.name || id;
@@ -207,6 +208,58 @@ export class Shipyard extends BasePanel {
     const refresh = () => { this.render(); this.onChange && this.onChange(); };
     this.root.querySelectorAll('[data-buyhull]').forEach((b) => b.addEventListener('click', () => { if (p.buyHull(b.dataset.buyhull)) refresh(); }));
     this.root.querySelectorAll('[data-equip]').forEach((b) => b.addEventListener('click', () => { if (p.setHull(b.dataset.equip)) refresh(); }));
+  }
+}
+
+export class Armory extends BasePanel {
+  constructor(opts) { super('vc-armory', opts); }
+
+  open(player) { this.player = player; this.isOpen = true; this.root.classList.add('open'); this.render(); }
+
+  render() {
+    const p = this.player;
+    const rof = (cd) => `${(1 / cd).toFixed(cd < 0.15 ? 0 : 1)}/s`;
+
+    const weapons = WEAPONS.map((w) => {
+      const owned = p.ownsWeapon(w.id);
+      const active = p.sidearm === w.id;
+      const pellets = w.pellets > 1 ? ` ·  ${w.pellets} pellets` : '';
+      const stat = `dmg ${w.dmg} · ${rof(w.cd)}${pellets}`;
+      let btn;
+      if (active) btn = '<span class="vc-tag">EQUIPPED</span>';
+      else if (owned) btn = `<button class="vc-btn" data-equipw="${w.id}">EQUIP</button>`;
+      else btn = `<button class="vc-btn" data-buyw="${w.id}" ${p.credits >= w.price ? '' : 'disabled'}>${w.price} cr</button>`;
+      return `<div class="vc-row" style="grid-template-columns:1fr auto">
+        <div><div class="nm">${w.name}</div><div class="ds">${w.desc}</div>
+        <div class="ds" style="color:#9fe7ff">${stat}</div></div><div>${btn}</div></div>`;
+    }).join('');
+
+    const armor = ARMORS.map((a) => {
+      const owned = p.ownsArmor(a.id);
+      const active = p.armor === a.id;
+      const stat = `max HP ${a.hp} · regen ${a.regen}/s`;
+      let btn;
+      if (active) btn = '<span class="vc-tag">EQUIPPED</span>';
+      else if (owned) btn = `<button class="vc-btn" data-equipa="${a.id}">EQUIP</button>`;
+      else btn = `<button class="vc-btn" data-buya="${a.id}" ${p.credits >= a.price ? '' : 'disabled'}>${a.price} cr</button>`;
+      return `<div class="vc-row" style="grid-template-columns:1fr auto">
+        <div><div class="nm">${a.name}</div><div class="ds">${a.desc}</div>
+        <div class="ds" style="color:#9fe7ff">${stat}</div></div><div>${btn}</div></div>`;
+    }).join('');
+
+    this.root.innerHTML = `<div class="vc-panel">
+      <div class="vc-head"><div class="vc-title">◈ ARMORY</div><div class="vc-credits">${p.credits} cr</div></div>
+      <div class="vc-sub">Personal sidearms and armor for on-foot fights. Equip applies at once. [E]/[Esc] to leave.</div>
+      <div class="vc-sub" style="opacity:.8">WEAPONS</div>${weapons}
+      <div class="vc-sub" style="opacity:.8;margin-top:10px">ARMOR</div>${armor}
+      <div class="vc-foot">Gunnery skill adds +4 bolt damage per level on top of your weapon.</div>
+    </div>`;
+
+    const refresh = () => { this.render(); this.onChange && this.onChange(); };
+    this.root.querySelectorAll('[data-buyw]').forEach((b) => b.addEventListener('click', () => { if (p.buyWeapon(b.dataset.buyw)) refresh(); }));
+    this.root.querySelectorAll('[data-equipw]').forEach((b) => b.addEventListener('click', () => { if (p.setWeapon(b.dataset.equipw)) refresh(); }));
+    this.root.querySelectorAll('[data-buya]').forEach((b) => b.addEventListener('click', () => { if (p.buyArmor(b.dataset.buya)) refresh(); }));
+    this.root.querySelectorAll('[data-equipa]').forEach((b) => b.addEventListener('click', () => { if (p.setArmor(b.dataset.equipa)) refresh(); }));
   }
 }
 
