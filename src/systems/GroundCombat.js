@@ -69,10 +69,20 @@ export class GroundCombat {
   fire() {
     if (this._fireCd > 0) return;
     this._fireCd = 0.22;
-    const h = this.character.heading;
-    const dir = this._tmp.set(Math.sin(h), 0, Math.cos(h)).normalize();
     const cp = this.character.position;
-    const start = cp.clone().setY(this.groundY(cp.x, cp.z) + CHEST).addScaledVector(dir, 1.4);
+    const muzzle = this._tmp.set(cp.x, this.groundY(cp.x, cp.z) + CHEST, cp.z);
+
+    // Fire at the screen-center aim point (the reticle), so shots land under the
+    // crosshair wherever the camera is pointed (up/down/left/right).
+    let dir;
+    if (this.aimTarget) {
+      dir = this._tmp2.copy(this.aimTarget).sub(muzzle).normalize();
+    } else {
+      const h = this.character.heading;
+      dir = this._tmp2.set(Math.sin(h), 0, Math.cos(h)).normalize();
+    }
+
+    const start = muzzle.clone().addScaledVector(dir, 1.4);
     this._spawnBolt(start, dir.clone(), false, player.stats().weapon);
     this.onEvent({ type: 'blaster' });
   }

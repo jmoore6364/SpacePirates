@@ -41,6 +41,7 @@ const el = {
   radar: document.getElementById('radar'),
   markers: document.getElementById('markers'),
   minimap: document.getElementById('minimap'),
+  reticle: document.getElementById('reticle'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -518,7 +519,8 @@ function renderHud() {
   const obj = questLog.objective();
   el.quest.textContent = obj ? `◈ ${obj}` : '';
   const h = scenes.current?.hud;
-  if (!h) return;
+  if (!h) { el.reticle.classList.remove('show'); return; }
+  el.reticle.classList.toggle('show', !!h.onFoot);
 
   if (h.onFoot) {
     el.throttle.textContent = `◈ ${h.world.name}`;
@@ -541,7 +543,7 @@ function renderHud() {
       el.approach.innerHTML = `▸ At your ship — press <b>T</b> to take off`;
       el.approach.classList.add('show');
     } else {
-      el.approach.innerHTML = `<span class="lo">Move mouse to look around (L/R turn, up/down tilt) · [W/S] walk · [J/click] blaster · [E] interact · [T] take off</span>`;
+      el.approach.innerHTML = `<span class="lo">Move mouse to aim the reticle (L/R turn, up/down tilt) · [W/S] walk · [J/click] fire at reticle · [E] interact · [T] take off</span>`;
       el.approach.classList.add('show');
     }
   } else {

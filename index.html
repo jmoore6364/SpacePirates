@@ -68,6 +68,16 @@
     #minimap { position: fixed; right: 18px; bottom: 40px; width: 170px; height: 170px;
       opacity: 0.92; pointer-events: none; display: none; }
     #minimap.show { display: block; }
+
+    /* on-foot aiming reticle — fixed at screen center, shows where the blaster fires */
+    #reticle { position: fixed; left: 50%; top: 50%; width: 30px; height: 30px;
+      transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 6;
+      border: 2px solid rgba(158,255,160,0.85); border-radius: 50%;
+      box-shadow: 0 0 8px rgba(120,255,160,0.55), inset 0 0 6px rgba(120,255,160,0.25); }
+    #reticle.show { display: block; }
+    #reticle::after { content: ""; position: absolute; left: 50%; top: 50%;
+      width: 3px; height: 3px; border-radius: 50%; background: #9effa0;
+      transform: translate(-50%, -50%); box-shadow: 0 0 6px rgba(120,255,160,0.9); }
   </style>
 </head>
 <body>
@@ -88,6 +98,7 @@
     <canvas id="markers"></canvas>
     <canvas id="radar" width="170" height="170"></canvas>
     <canvas id="minimap" width="170" height="170"></canvas>
+    <div id="reticle"></div>
     <div id="hud-approach"></div>
     <div id="hud-toast"></div>
   </div>
