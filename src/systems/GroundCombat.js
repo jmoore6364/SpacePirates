@@ -12,13 +12,15 @@ const CHEST = 1.6;
 const HP_REGEN = 6; // per second after a lull
 
 export class GroundCombat {
-  constructor(scene, character, input, { onEvent, spawn, groundY } = {}) {
+  constructor(scene, character, input, { onEvent, spawn, groundY, colliders } = {}) {
     this.scene = scene;
     this.character = character;
     this.input = input;
     this.onEvent = onEvent || (() => {});
     this.spawnPoint = spawn || new THREE.Vector3(0, 0, 16);
     this.groundY = groundY || (() => 0);
+    this.colliders = colliders || []; // city AABBs, used to stop bolts at the reticle
+    this.camera = null;               // set by the scene; defines the screen-center ray
 
     this.maxHp = 100;
     this.hp = 100;
@@ -28,6 +30,7 @@ export class GroundCombat {
     this._hitGrace = 0;
     this._tmp = new THREE.Vector3();
     this._tmp2 = new THREE.Vector3();
+    this._tmp3 = new THREE.Vector3();
     this._mat = {
       player: new THREE.MeshBasicMaterial({ color: 0x9effa0 }),
       enemy: new THREE.MeshBasicMaterial({ color: 0xff5b6e }),
@@ -72,22 +75,51 @@ export class GroundCombat {
     const cp = this.character.position;
     const muzzle = this._tmp.set(cp.x, this.groundY(cp.x, cp.z) + CHEST, cp.z);
 
-    // Fire at the screen-center aim point (the reticle), so shots land under the
-    // crosshair wherever the camera is pointed (up/down/left/right).
-    let dir;
-    if (this.aimTarget) {
-      dir = this._tmp2.copy(this.aimTarget).sub(muzzle).normalize();
+    // Aim at the exact world point under the screen-center reticle: cast the camera's
+    // view ray against enemies, buildings and the ground, then send the bolt from the
+    // muzzle to that hit so it visibly ENDS at the reticle (no overshoot).
+    let target;
+    if (this.camera) {
+      const origin = this._tmp2.copy(this.camera.position);
+      const ray = this.camera.getWorldDirection(this._tmp3);
+      const dist = this._reticleDist(origin, ray);
+      target = origin.clone().addScaledVector(ray, dist);
     } else {
       const h = this.character.heading;
-      dir = this._tmp2.set(Math.sin(h), 0, Math.cos(h)).normalize();
+      target = muzzle.clone().add(new THREE.Vector3(Math.sin(h), 0, Math.cos(h)).multiplyScalar(80));
     }
 
+    const toTarget = target.sub(muzzle);
+    const reach = Math.max(2, toTarget.length());
+    const dir = toTarget.multiplyScalar(1 / reach); // normalized
     const start = muzzle.clone().addScaledVector(dir, 1.4);
-    this._spawnBolt(start, dir.clone(), false, player.stats().weapon);
+    // life chosen so the bolt despawns right as it reaches the reticle point
+    const life = Math.min(BOLT_LIFE, (reach - 1.4) / BOLT_SPEED);
+    this._spawnBolt(start, dir.clone(), false, player.stats().weapon, life);
     this.onEvent({ type: 'blaster' });
   }
 
-  _spawnBolt(pos, dir, hostile, dmg) {
+  // Distance along the camera ray to the first thing under the reticle (enemy /
+  // building / ground), capped to a max range when it hits open sky.
+  _reticleDist(o, d) {
+    let best = 220;
+    if (d.y < -1e-4) { // ground plane near the player (terrain is ~flat)
+      const t = (this.groundY(o.x, o.z) - o.y) / d.y;
+      if (t > 0.1) best = Math.min(best, t);
+    }
+    for (const c of this.colliders) {
+      const t = rayAABB(o, d, c.min, c.max);
+      if (t !== null && t > 0.1) best = Math.min(best, t);
+    }
+    for (const e of this.enemies) {
+      const cy = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
+      const t = raySphere(o, d, e.mesh.position.x, cy, e.mesh.position.z, 2.2);
+      if (t !== null && t > 0.1) best = Math.min(best, t);
+    }
+    return best;
+  }
+
+  _spawnBolt(pos, dir, hostile, dmg, life = BOLT_LIFE) {
     const mesh = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.18, 1.4, 2, 6),
       hostile ? this._mat.enemy : this._mat.player,
@@ -95,7 +127,7 @@ export class GroundCombat {
     mesh.position.copy(pos);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     this.scene.add(mesh);
-    this.bolts.push({ mesh, vel: dir.clone().multiplyScalar(BOLT_SPEED), life: BOLT_LIFE, hostile, dmg });
+    this.bolts.push({ mesh, vel: dir.clone().multiplyScalar(BOLT_SPEED), life, hostile, dmg });
   }
 
   _updateEnemies(dt) {
@@ -186,6 +218,37 @@ export class GroundCombat {
   hudData() {
     return { hp: this.hp, maxHp: this.maxHp, enemies: this.enemies.length };
   }
+}
+
+// Nearest positive ray/AABB hit distance, or null. (slab method)
+function rayAABB(o, d, min, max) {
+  let tmin = -Infinity, tmax = Infinity;
+  for (const ax of ['x', 'y', 'z']) {
+    if (Math.abs(d[ax]) < 1e-8) {
+      if (o[ax] < min[ax] || o[ax] > max[ax]) return null; // parallel & outside slab
+    } else {
+      const inv = 1 / d[ax];
+      let t1 = (min[ax] - o[ax]) * inv;
+      let t2 = (max[ax] - o[ax]) * inv;
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+      if (t1 > tmin) tmin = t1;
+      if (t2 < tmax) tmax = t2;
+      if (tmin > tmax) return null;
+    }
+  }
+  return tmin > 0 ? tmin : (tmax > 0 ? tmax : null);
+}
+
+// Nearest positive ray/sphere hit distance, or null.
+function raySphere(o, d, cx, cy, cz, r) {
+  const mx = o.x - cx, my = o.y - cy, mz = o.z - cz;
+  const b = mx * d.x + my * d.y + mz * d.z;
+  const c = mx * mx + my * my + mz * mz - r * r;
+  if (c > 0 && b > 0) return null; // origin outside & ray pointing away
+  const disc = b * b - c;
+  if (disc < 0) return null;
+  const t = -b - Math.sqrt(disc);
+  return t >= 0 ? t : 0;
 }
 
 function buildEnforcer() {

@@ -89,6 +89,7 @@ export class SurfaceScene {
     this.ground = new GroundCombat(this.scene, this.character, input, {
       spawn: city.spawn.clone(),
       groundY: this.heightAt,
+      colliders: this.colliders,
       onEvent: (e) => { if (this.onEvent) this.onEvent(e); },
     });
     if (threat > 0) this.ground.spawnWave(Math.min(threat + 1, 6));
@@ -146,8 +147,8 @@ export class SurfaceScene {
     this.cam = new ThirdPersonCamera(renderer.camera);
     this.cam.yaw = this.character.heading;
     this.cam.update(0.016, this.character);
-    // blaster fires at the camera's screen-center aim point (the reticle)
-    this.ground.aimTarget = this.cam.aimPoint;
+    // blaster casts the camera's view ray to land bolts under the screen-center reticle
+    this.ground.camera = renderer.camera;
   }
 
   // 3rd-person controls: forward/back walk, turn rotates the free look-yaw (so you
