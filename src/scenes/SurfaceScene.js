@@ -7,6 +7,7 @@ import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
 import { GroundCombat } from '../systems/GroundCombat.js';
 import { player } from '../game/Player.js';
+import { clamp } from '../util/math.js';
 
 // Per-visit time-of-day phases (a light day/night nudge layered on the world mood).
 const TIME_PHASES = [
@@ -150,37 +151,44 @@ export class SurfaceScene {
   }
 
   // 3rd-person controls: forward/back walk, turn rotates the free look-yaw (so you
-  // can point anywhere), strafe steps sideways. Mouse: up/down walk, left/right turn.
-  // Touch stick: y walk, x turn. Keyboard: W/S walk, A/D turn, Q/E strafe.
+  // can point anywhere), strafe steps sideways. Mouse motion looks (1:1, no lag).
+  // Touch stick: y walk, x turn. Keyboard: W/S walk, A/D turn, Q/E strafe, R/F tilt.
   readControls() {
     const i = this.input;
-    if (!i || this.inputLocked) return { forward: 0, turn: 0, strafe: 0 };
+    if (!i || this.inputLocked) return { forward: 0, turn: 0, strafe: 0, pitch: 0 };
     const clampU = (v) => (v < -1 ? -1 : v > 1 ? 1 : v);
     const tm = i.touchMove;
     const tf = tm && tm.active ? -tm.y : 0;
     const tt = tm && tm.active ? tm.x : 0;
-    // mouse: horizontal cursor offset turns you (continuous, snappy ramp so even a
-    // small offset turns briskly). Negated so cursor-right turns the view right.
-    const mx = (i.mouse && i.mouse.active && i.mouseFlight) ? i.mouse.x : 0;
-    const my = (i.mouse && i.mouse.active && i.mouseFlight) ? i.mouse.y : 0;
-    const dz = 0.05;
-    const ramp = (v) => { const a = Math.abs(v); return a < dz ? 0 : Math.sign(v) * Math.min(1, (a - dz) / 0.45); };
     return {
       // forward/back is keys (or touch stick Y) — not the mouse
       forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
-      // A/D + touch stick X + mouse-X turn the free look-yaw at a rate (sign flipped)
-      turn: -clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt + ramp(mx)),
+      // A/D + touch stick X turn the free look-yaw at a rate (sign flipped)
+      turn: -clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt),
       strafe: i.axis(['KeyQ'], ['KeyE']),
-      // mouse-Y / R-F look up/down (cursor up = look up = negative)
-      pitch: clampU(ramp(my) + i.axis(['KeyF'], ['KeyR'])),
+      // R/F look up/down (R up = negative pitch)
+      pitch: i.axis(['KeyF'], ['KeyR']),
     };
   }
 
   update(dt) {
     const c = this.readControls();
-    const TURN_RATE = 4.5; // rad/s at full deflection — snappy (hold to spin around)
+    const TURN_RATE = 4.5;  // rad/s for key/touch turning
+    const PITCH_RATE = 2.0; // /s for R-F tilt
+
+    // Direct mouse-look: relative motion turns/pitches instantly, scaled by how far
+    // the mouse moved — no rate ramp, so it tracks the hand 1:1 (snappy, no lag).
+    const i = this.input;
+    // drain motion every frame (even when locked) so it never piles up into a jump
+    const look = i && i.consumeLook ? i.consumeLook() : { dx: 0, dy: 0 };
+    if (i && i.mouseFlight && !this.inputLocked) {
+      const SENS = 0.0026; // radians per pixel
+      this.lookYaw -= look.dx * SENS;                 // mouse right → turn right
+      this.lookPitch = clamp(this.lookPitch + look.dy * SENS, -1, 1); // mouse down → look down
+    }
+
     this.lookYaw += c.turn * TURN_RATE * dt;
-    this.lookPitch = c.pitch || 0;
+    this.lookPitch = clamp(this.lookPitch + c.pitch * PITCH_RATE * dt, -1, 1);
     this.character.update(dt, { forward: c.forward, strafe: c.strafe }, this.lookYaw, this.colliders);
     if (this.cam) this.cam.update(dt, this.character, this.lookPitch);
 

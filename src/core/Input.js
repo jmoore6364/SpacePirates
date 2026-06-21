@@ -7,7 +7,10 @@ export class Input {
     this.mouseLeft = false;
     this.mouseFlight = true; // steer the ship toward the cursor (toggle in settings)
     this.touchMove = { x: 0, y: 0, active: false }; // virtual stick for on-foot movement
-    this.lookDX = 0; // accumulated relative mouse motion while pointer-locked (on-foot look)
+    // accumulated relative mouse motion (pixels) since last consume — drives snappy,
+    // 1:1 on-foot mouse-look (no rate ramp, so it doesn't feel laggy).
+    this.lookDX = 0;
+    this.lookDY = 0;
 
     this._down = (e) => {
       if (e.metaKey || e.ctrlKey) return;
@@ -20,6 +23,9 @@ export class Input {
       this.mouse.x = (e.clientX / w) * 2 - 1;
       this.mouse.y = (e.clientY / h) * 2 - 1;
       this.mouse.active = true;
+      // relative motion for on-foot look (immediate, proportional to how far you move)
+      this.lookDX += e.movementX || 0;
+      this.lookDY += e.movementY || 0;
     };
     this._mdown = (e) => { if (e.button === 0) this.mouseLeft = true; };
     this._mup = (e) => { if (e.button === 0) this.mouseLeft = false; };
@@ -51,13 +57,14 @@ export class Input {
     return pos - neg;
   }
 
-  // Consume accumulated mouse-look delta (pixels) since last call.
-  consumeLookDX() { const d = this.lookDX; this.lookDX = 0; return d; }
+  // Consume accumulated relative mouse motion (pixels) since last call.
+  consumeLook() { const d = { dx: this.lookDX, dy: this.lookDY }; this.lookDX = 0; this.lookDY = 0; return d; }
 
   // For tests/automation.
   press(code) { this.keys.add(code); }
   release(code) { this.keys.delete(code); }
   setMouse(x, y) { this.mouse.x = x; this.mouse.y = y; this.mouse.active = true; }
+  moveBy(dx, dy) { this.lookDX += dx; this.lookDY += dy; this.mouse.active = true; } // sim relative look
 
   dispose() {
     this._target.removeEventListener('keydown', this._down);
