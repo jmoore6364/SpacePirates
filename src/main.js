@@ -157,6 +157,8 @@ function enterSpace(worldId) {
   space.onEvent = (e) => {
     switch (e.type) {
       case 'fire': audio.laser(); tutorial.mark('fired'); break;
+      case 'missile': audio.missile(); renderer.addShake(0.12); break;
+      case 'dryFire': audio.blip(); break; // out of missiles
       case 'hit': break;
       case 'playerHit': audio.hit(); break;
       case 'kill': {
@@ -637,6 +639,7 @@ function renderHud() {
         `<div class="sh">SHD [${bar(c.shield, c.maxShield)}] ${Math.round(c.shield)}</div>` +
         `<div class="hl">HUL [${bar(c.hull, c.maxHull)}] ${Math.round(c.hull)}</div>` +
         `<div style="color:#9effa0">FUE [${bar(player.fuel, player.maxFuel)}] ${Math.round(player.fuel)}</div>` +
+        `<div style="color:#ffd24a">MSL ${'◆'.repeat(c.missiles)}${'◇'.repeat(Math.max(0, c.maxMissiles - c.missiles))} ${c.missiles}/${c.maxMissiles}</div>` +
         `<div class="wanted">WANTED ${stars}</div>` +
         (c.enemies ? `<div class="hl">⚠ ${c.enemies} hostile${c.enemies > 1 ? 's' : ''}</div>` : '');
     }

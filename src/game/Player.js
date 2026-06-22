@@ -28,6 +28,8 @@ const DEFAULTS = () => ({
   hullsOwned: ['corsair'],
   fuel: 100,
   maxFuel: 100,
+  missiles: 6,                  // homing-missile ammo (space secondary weapon)
+  maxMissiles: 6,
   sidearm: 'blaster',           // equipped on-foot weapon
   sidearmsOwned: ['blaster'],
   armor: 'flightsuit',          // equipped on-foot armor
@@ -38,6 +40,9 @@ const DEFAULTS = () => ({
 
 // Fuel a fast-travel jump costs, by travel distance (manual flight is free).
 export const fuelCost = (distance) => Math.max(1, Math.ceil(distance / 55));
+
+// Price per homing missile when restocking ordnance.
+export const MISSILE_PRICE = 45;
 
 // Skill tree (data-driven). Each level adds a flat perk to a derived stat.
 export const SKILLS = {
@@ -67,6 +72,7 @@ export class Player {
       xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
       hull: this.hull, hullsOwned: this.hullsOwned,
       fuel: this.fuel, maxFuel: this.maxFuel,
+      missiles: this.missiles, maxMissiles: this.maxMissiles,
       sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
       armor: this.armor, armorsOwned: this.armorsOwned,
       runStats: this.runStats, achievements: this.achievements,
@@ -133,6 +139,18 @@ export class Player {
   canJump(cost) { return this.fuel >= cost; }
   spendFuel(n) { this.fuel = Math.max(0, this.fuel - n); this.save(); }
   addFuel(n) { this.fuel = Math.min(this.maxFuel, this.fuel + n); this.save(); }
+
+  // --- ordnance (homing missiles) ---
+  spendMissile() { if (this.missiles > 0) { this.missiles -= 1; this.save(); return true; } return false; }
+  missileRestockCost() { return (this.maxMissiles - this.missiles) * MISSILE_PRICE; }
+  buyMissiles() {
+    const cost = this.missileRestockCost();
+    if (cost <= 0 || this.credits < cost) return false;
+    this.credits -= cost;
+    this.missiles = this.maxMissiles;
+    this.save();
+    return true;
+  }
 
   // --- ship hulls ---
   activeHull() { return hullById(this.hull); }

@@ -280,6 +280,24 @@ async function main() {
     if (combat.kills <= kills0) errors.push('combat: fired but destroyed no target');
     console.log('› screenshot → pass5-combat.png');
 
+    // secondary weapon: spawn a target, fire a homing missile, confirm it kills + spends ammo
+    await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat;
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = [];
+      window.__VC__.player.missiles = window.__VC__.player.maxMissiles;
+      const f = s.ship.forward();
+      c._spawnEnemy(s.ship.position.clone().addScaledVector(f, 140));
+    });
+    const msl0 = await page.evaluate(() => window.__VC__.player.missiles);
+    const mk0 = await page.evaluate(() => window.__VC__.space.combat.kills);
+    await page.evaluate(() => window.__VC__.input.press('KeyL'));
+    await page.waitForFunction((k) => window.__VC__.space.combat.kills > k, mk0, { timeout: 8000 }).catch(() => {});
+    await page.evaluate(() => window.__VC__.input.release('KeyL'));
+    const msl = await page.evaluate(() => ({ missiles: window.__VC__.player.missiles, kills: window.__VC__.space.combat.kills }));
+    if (msl.missiles >= msl0) errors.push('missile fire did not spend ammo');
+    if (msl.kills <= mk0) errors.push('missile destroyed no target');
+    console.log(`› missiles: ammo ${msl0}→${msl.missiles}, kills ${mk0}→${msl.kills}`);
+
     // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point
     await page.evaluate(() => window.__VC__.player.addXp(500)); // guarantee a skill point
     await page.keyboard.press('k');

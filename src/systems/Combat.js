@@ -10,6 +10,13 @@ const FWD = new THREE.Vector3(0, 0, -1);
 const PROJ_SPEED = 760;
 const PROJ_LIFE = 1.6;
 const SHIELD_REGEN = 8; // per second after a lull
+// homing missiles (secondary weapon): slower than bolts so the seek reads, hits hard
+// with splash, limited by Player ammo.
+const MISSILE_SPEED = 340;
+const MISSILE_LIFE = 3.4;
+const MISSILE_DMG = 52;
+const SPLASH_RADIUS = 22;
+const SPLASH_DMG = 24;
 
 // Enemy archetypes — distinct feel and threat. Mix is gated by wanted level.
 export const ENEMY_TYPES = {
@@ -35,15 +42,18 @@ export class Combat {
     this.projectiles = []; // { mesh, vel, life, dmg, hostile }
     this.enemies = [];     // { mesh, vel, hp, cd }
     this.effects = [];     // { mesh, life, max, scaleRate }
+    this.missiles = [];    // { mesh, vel, life, target, trailCd }
 
     this.wanted = 0;
     this.kills = 0;
     this._fireCd = 0;
+    this._missileCd = 0;
     this._spawnCd = 3;
     this._hitGrace = 0; // since last damage, for shield regen
     this._mat = {
       player: new THREE.MeshBasicMaterial({ color: 0x66e0ff }),
       enemy: new THREE.MeshBasicMaterial({ color: 0xff5b6e }),
+      missile: new THREE.MeshBasicMaterial({ color: 0xffd24a }),
     };
     this._tmp = new THREE.Vector3();
     this._tmp2 = new THREE.Vector3();
@@ -53,14 +63,17 @@ export class Combat {
 
   update(dt) {
     this._fireCd -= dt;
+    this._missileCd -= dt;
     this._spawnCd -= dt;
     this._hitGrace += dt;
 
     if (this.input && (this.input.firing ? this.input.firing() : this.input.isDown('KeyJ'))) this.fire();
+    if (this.input && this.input.firingSecondary && this.input.firingSecondary()) this.fireMissile();
 
     this._spawnWaves(dt);
     this._updateEnemies(dt);
     this._updateProjectiles(dt);
+    this._updateMissiles(dt);
     this._updateEffects(dt);
     this._regenShield(dt);
   }
@@ -107,6 +120,87 @@ export class Combat {
     const vel = dir.clone().multiplyScalar(PROJ_SPEED);
     // inherit a bit of shooter momentum so bolts read right
     this.projectiles.push({ mesh, vel, life: PROJ_LIFE, dmg, hostile });
+  }
+
+  // Fire a homing missile if ammo remains. It locks the nearest enemy ahead and
+  // detonates with splash damage. Ammo lives on the shared Player (#16 optional).
+  fireMissile() {
+    if (this._missileCd > 0) return;
+    if (!player.spendMissile()) { this.onEvent({ type: 'dryFire' }); this._missileCd = 0.4; return; }
+    this._missileCd = 0.7;
+    const fwd = FWD.clone().applyQuaternion(this.ship.quaternion);
+    const start = this.ship.position.clone().addScaledVector(fwd, 3);
+    const target = this._lockTarget(fwd);
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 2.2, 3, 6), this._mat.missile);
+    mesh.position.copy(start);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fwd);
+    this.scene.add(mesh);
+    this.missiles.push({ mesh, vel: fwd.clone().multiplyScalar(MISSILE_SPEED), life: MISSILE_LIFE, target, trailCd: 0 });
+    this.onEvent({ type: 'missile' });
+  }
+
+  // nearest enemy roughly ahead of the ship (for missile lock); null if none
+  _lockTarget(fwd) {
+    let best = null, bd = Infinity;
+    for (const e of this.enemies) {
+      const to = this._tmp.copy(e.mesh.position).sub(this.ship.position);
+      const dist = to.length();
+      if (dist < 1) continue;
+      if (fwd.dot(to.normalize()) < 0.2) continue;
+      if (dist < bd) { bd = dist; best = e; }
+    }
+    return best;
+  }
+
+  _updateMissiles(dt) {
+    for (let i = this.missiles.length - 1; i >= 0; i--) {
+      const m = this.missiles[i];
+      // re-acquire if the locked target died
+      if (m.target && (m.target._dead || !this.enemies.includes(m.target))) {
+        m.target = this._lockTarget(this._tmp.copy(m.vel).normalize());
+      }
+      // strong homing toward the target
+      if (m.target) {
+        const want = this._tmp2.copy(m.target.mesh.position).sub(m.mesh.position).normalize();
+        const cur = this._tmp.copy(m.vel).normalize();
+        cur.lerp(want, clamp(dt * 5, 0, 1)).normalize();
+        m.vel.copy(cur).multiplyScalar(MISSILE_SPEED);
+        m.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), cur);
+      }
+
+      const from = this._tmp.copy(m.mesh.position);
+      m.mesh.position.addScaledVector(m.vel, dt);
+      const to = m.mesh.position;
+      m.life -= dt;
+
+      // smoke/flare trail
+      m.trailCd -= dt;
+      if (m.trailCd <= 0) { m.trailCd = 0.04; this._spark(to, 0xffae3c, 0.3); }
+
+      let hit = false;
+      for (const e of this.enemies) {
+        const r = 7 * (e.type?.scale || 1) + 5; // proximity fuse — a touch wider than bolts
+        if (segDistSq(e.mesh.position, from, to) < r * r) { hit = true; break; }
+      }
+      if (hit || m.life <= 0) {
+        if (hit) this._detonate(to.clone());
+        this.scene.remove(m.mesh);
+        m.mesh.geometry.dispose();
+        this.missiles.splice(i, 1);
+      }
+    }
+  }
+
+  // splash explosion: full damage at the core, falloff to SPLASH_DMG in radius
+  _detonate(pos) {
+    this._explosion(pos, 0xffae3c);
+    for (const e of [...this.enemies]) {
+      const d = e.mesh.position.distanceTo(pos);
+      if (d <= SPLASH_RADIUS) {
+        e.hp -= (d < 6 ? MISSILE_DMG : SPLASH_DMG);
+        if (e.hp <= 0) this._killEnemy(e);
+      }
+    }
   }
 
   _spawnWaves(dt) {
@@ -264,6 +358,8 @@ export class Combat {
     // wipe the field; restore on respawn
     for (const e of this.enemies) { this.scene.remove(e.mesh); }
     this.enemies = [];
+    for (const m of this.missiles) { this.scene.remove(m.mesh); m.mesh.geometry.dispose(); }
+    this.missiles = [];
     this.shield = this.maxShield;
     this.hull = this.maxHull;
     this.wanted = 0;
@@ -324,6 +420,7 @@ export class Combat {
       shield: this.shield, maxShield: this.maxShield,
       hull: this.hull, maxHull: this.maxHull,
       wanted: this.wanted, enemies: this.enemies.length,
+      missiles: player.missiles, maxMissiles: player.maxMissiles,
     };
   }
 }

@@ -2,7 +2,7 @@
 // Mission Board (delivery + bounty jobs), and the Market (commodity trading).
 // All read/write the shared player + mission log and call onClose so the scene
 // can unlock input.
-import { UPGRADES, SKILLS } from '../game/Player.js';
+import { UPGRADES, SKILLS, MISSILE_PRICE } from '../game/Player.js';
 import { HULLS } from '../game/Hulls.js';
 import { WEAPONS, ARMORS } from '../game/Weapons.js';
 import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById, refuel, FUEL_PRICE } from '../game/Market.js';
@@ -347,6 +347,12 @@ export class Market extends BasePanel {
         <span></span>
         <button class="vc-btn" data-refuel ${p.fuel < p.maxFuel && p.credits >= FUEL_PRICE ? '' : 'disabled'}>REFUEL</button>
       </div>
+      <div class="vc-row" style="grid-template-columns:1fr auto auto;gap:10px;border-color:#4a3a1a">
+        <div><div class="nm">Missiles <span class="vc-pips" style="color:#ffd24a">${p.missiles}/${p.maxMissiles}</span></div>
+        <div class="ds">${MISSILE_PRICE} cr each · rearm ${p.missileRestockCost()} cr</div></div>
+        <span></span>
+        <button class="vc-btn" data-rearm ${p.missiles < p.maxMissiles && p.credits >= p.missileRestockCost() ? '' : 'disabled'}>REARM</button>
+      </div>
       ${rows}
       <div class="vc-foot">Upgrade Cargo at the Trader to haul bigger loads.</div>
     </div>`;
@@ -359,5 +365,7 @@ export class Market extends BasePanel {
     }));
     const rf = this.root.querySelector('[data-refuel]');
     if (rf) rf.addEventListener('click', () => { if (refuel(p).ok) { this.render(); this.onChange && this.onChange(); } });
+    const rearm = this.root.querySelector('[data-rearm]');
+    if (rearm) rearm.addEventListener('click', () => { if (p.buyMissiles()) { this.render(); this.onChange && this.onChange(); } });
   }
 }

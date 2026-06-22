@@ -11,6 +11,7 @@ export const DEFAULT_BINDINGS = {
   rollLeft: ['KeyQ'],
   rollRight: ['KeyE'],
   fire: ['KeyJ'],
+  secondary: ['KeyL'],
   land: ['KeyF'],
   interact: ['KeyE'],
   map: ['KeyM'],
@@ -25,7 +26,7 @@ export const BINDABLE = [
   ['pitchUp', 'Pitch up / forward'], ['pitchDown', 'Pitch down / back'],
   ['yawLeft', 'Yaw left'], ['yawRight', 'Yaw right'],
   ['rollLeft', 'Roll left / strafe L'], ['rollRight', 'Roll right / strafe R'],
-  ['fire', 'Fire'], ['land', 'Land'], ['interact', 'Interact'],
+  ['fire', 'Fire'], ['secondary', 'Fire missile'], ['land', 'Land'], ['interact', 'Interact'],
   ['map', 'Star map'], ['menu', 'Menu / pause'],
 ];
 
@@ -84,6 +85,9 @@ export class Input {
 
   // is the fire control engaged (bound key, left mouse, or gamepad fire)
   firing() { return this.act('fire') || this.mouseLeft || this.padFire; }
+
+  // secondary fire — homing missile (bound key or gamepad RB)
+  firingSecondary() { return this.act('secondary') || this._padActs.has('secondary'); }
 
   // --- action map (#13): resolve a named action from keyboard OR gamepad ---
   act(action) {
