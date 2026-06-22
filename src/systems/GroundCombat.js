@@ -26,6 +26,7 @@ export class GroundCombat {
     this.maxHp = armor.hp;
     this.hp = armor.hp;
     this.regen = armor.regen || HP_REGEN;
+    this.dr = armor.dr || 0; // fraction of incoming damage soaked by armor
     this.enemies = [];
     this.bolts = [];
     this._fireCd = 0;
@@ -246,7 +247,7 @@ export class GroundCombat {
 
   _damagePlayer(dmg) {
     this._hitGrace = 0;
-    this.hp -= dmg;
+    this.hp -= dmg * (1 - this.dr);
     this.onEvent({ type: 'playerHurt' });
     if (this.hp <= 0) this._down();
   }

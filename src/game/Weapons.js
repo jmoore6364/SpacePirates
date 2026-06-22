@@ -28,9 +28,9 @@ export const WEAPONS = [
 export const weaponById = (id) => WEAPONS.find((w) => w.id === id) || WEAPONS[0];
 
 export const ARMORS = [
-  { id: 'flightsuit', name: 'Flight Suit', price: 0,    desc: 'Basic kit. 100 HP.',                 hp: 100, regen: 6 },
-  { id: 'plated',     name: 'Plated Vest', price: 1600, desc: 'Reinforced plating. 160 HP.',        hp: 160, regen: 6 },
-  { id: 'exo',        name: 'Exo Carapace', price: 3800, desc: 'Powered shell. 240 HP, fast regen.', hp: 240, regen: 11 },
+  { id: 'flightsuit', name: 'Flight Suit',  price: 0,    desc: 'Basic kit. 100 HP.',                      hp: 100, regen: 6,  dr: 0 },
+  { id: 'plated',     name: 'Plated Vest',  price: 1600, desc: '160 HP, soaks 20% of incoming hits.',     hp: 160, regen: 6,  dr: 0.20 },
+  { id: 'exo',        name: 'Exo Carapace', price: 3800, desc: '240 HP, fast regen, soaks 40% of hits.',  hp: 240, regen: 11, dr: 0.40 },
 ];
 
 export const armorById = (id) => ARMORS.find((a) => a.id === id) || ARMORS[0];

@@ -45,10 +45,12 @@ test('sidearm damage includes the Gunnery skill perk', () => {
   assert.equal(p.sidearmDamage(), base + 8);
 });
 
-test('armor sets on-foot max HP', () => {
+test('armor sets on-foot max HP and damage reduction', () => {
   const p = new Player(null);
   p.credits = 100000;
   assert.equal(p.groundArmor().hp, armorById('flightsuit').hp);
+  assert.equal(p.groundArmor().dr, 0); // starter suit soaks nothing
   assert.ok(p.buyArmor('exo'));
   assert.equal(p.groundArmor().hp, armorById('exo').hp);
+  assert.ok(p.groundArmor().dr > 0); // exo measurably reduces incoming damage
 });

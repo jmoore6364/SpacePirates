@@ -259,7 +259,7 @@ export class Armory extends BasePanel {
     const armor = ARMORS.map((a) => {
       const owned = p.ownsArmor(a.id);
       const active = p.armor === a.id;
-      const stat = `max HP ${a.hp} · regen ${a.regen}/s`;
+      const stat = `max HP ${a.hp} · regen ${a.regen}/s${a.dr ? ` · -${Math.round(a.dr * 100)}% dmg` : ''}`;
       let btn;
       if (active) btn = '<span class="vc-tag">EQUIPPED</span>';
       else if (owned) btn = `<button class="vc-btn" data-equipa="${a.id}">EQUIP</button>`;
