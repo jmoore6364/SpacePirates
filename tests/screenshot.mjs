@@ -319,6 +319,28 @@ async function main() {
     if (!bossOut.warlordAch) errors.push('Warlord Bane achievement did not unlock');
     console.log(`› boss: ${bossInfo.name} hp=${bossInfo.hp} → killed, bounty +${bossOut.credits - credB} cr, wanted→${bossOut.wanted}, ach=${bossOut.warlordAch}`);
 
+    // asteroid belt: parking inside a rock deals collision damage
+    const ast = await page.evaluate(() => {
+      const s = window.__VC__.space; const a = s.asteroids;
+      if (!a || !a.rocks.length) return { ok: false };
+      const rock = a.rocks[0];
+      s.combat.hull = s.combat.maxHull; s.combat.shield = 0; s.combat._hitGrace = 99;
+      s.ship.velocity.set(0, 0, 0);
+      s.ship.position.copy(rock.mesh.position);
+      s._astCd = 0;
+      return { ok: true, rocks: a.rocks.length, hull0: s.combat.hull };
+    });
+    if (!ast.ok) errors.push('asteroid belt did not generate');
+    else {
+      await sleep(250);
+      await page.screenshot({ path: path.join(SHOT_DIR, 'pass-asteroids.png') });
+      const hullAfter = await page.evaluate(() => window.__VC__.space.combat.hull);
+      if (!(hullAfter < ast.hull0)) errors.push('asteroid collision dealt no damage');
+      console.log(`› asteroids: ${ast.rocks} rocks, hull ${ast.hull0}→${Math.round(hullAfter)} on impact`);
+      // park the ship safely back at a world so later steps are unaffected
+      await page.evaluate(() => window.__VC__.space.travelTo('neon-haven'));
+    }
+
     // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point
     await page.evaluate(() => window.__VC__.player.addXp(500)); // guarantee a skill point
     await page.keyboard.press('k');

@@ -8,6 +8,7 @@ import { makeStarfield, makePlanet, makeSun } from './props.js';
 import { WORLDS } from '../world/Worlds.js';
 import { player } from '../game/Player.js';
 import { Combat } from '../systems/Combat.js';
+import { Asteroids } from './Asteroids.js';
 
 export class SpaceScene {
   constructor(input) {
@@ -46,6 +47,13 @@ export class SpaceScene {
     this.combat = new Combat(this.scene, this.ship, input, {
       onEvent: (e) => this._onCombat(e),
     });
+
+    // asteroid belt around The Maw (the asteroid pirate stronghold)
+    const maw = this.planets.find((p) => p.userData.world.id === 'the-maw');
+    this.asteroids = maw
+      ? new Asteroids(this.scene, { center: maw.position, count: 46, inner: maw.userData.world.r * 1.7, outer: maw.userData.world.r * 5 })
+      : null;
+    this._astCd = 0;
 
     this.chase = null;
     this._enginePulse = 0;
@@ -127,6 +135,30 @@ export class SpaceScene {
     }
   }
 
+  // Bounce the ship off any asteroid it overlaps and apply periodic collision damage.
+  _asteroidCollisions(dt) {
+    this._astCd -= dt;
+    if (!this.active) return;
+    const hit = this.asteroids.collide(this.ship.position, 5);
+    if (!hit) return;
+    const sx = Math.max(hit.mesh.scale.x, hit.mesh.scale.y, hit.mesh.scale.z);
+    const n = this._tmp.copy(this.ship.position).sub(hit.mesh.position);
+    const overlap = (hit.radius * sx + 5) - n.length();
+    n.normalize();
+    // shove the ship clear of the rock and kill inward momentum
+    this.ship.position.addScaledVector(n, Math.max(0.5, overlap));
+    if (this.ship.velocity) {
+      const into = this.ship.velocity.dot(n);
+      if (into < 0) this.ship.velocity.addScaledVector(n, -into * 1.4);
+      this.ship.velocity.multiplyScalar(0.6);
+    }
+    if (this._astCd <= 0) {
+      this._astCd = 0.6; // damage at most ~1.6×/s while grinding a rock
+      this.combat._damagePlayer(14);
+      if (this.renderer) this.renderer.addShake(0.7);
+    }
+  }
+
   update(dt, renderer) {
     this.ship.update(dt, this.readControls());
 
@@ -140,6 +172,7 @@ export class SpaceScene {
     }
 
     this._updateApproach();
+    if (this.asteroids) { this.asteroids.update(dt); this._asteroidCollisions(dt); }
     if (this.active) this.combat.update(dt);
 
     const speed01 = this.ship.speed / this.ship.maxSpeed;
