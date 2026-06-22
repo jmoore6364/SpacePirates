@@ -34,7 +34,7 @@ const DEFAULTS = () => ({
   sidearmsOwned: ['blaster'],
   armor: 'flightsuit',          // equipped on-foot armor
   armorsOwned: ['flightsuit'],
-  runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0, bosses: 0 },
+  runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0, bosses: 0, oreMined: 0 },
   achievements: [],             // unlocked achievement ids
 });
 
@@ -221,6 +221,13 @@ export class Player {
   cargoUsed() { return Object.values(this.cargo).reduce((a, q) => a + q, 0); }
   cargoFree() { return Math.max(0, this.cargoCap() - this.cargoUsed()); }
   cargoQty(id) { return this.cargo[id] || 0; }
+
+  // Add cargo up to remaining hold space; returns how much actually fit.
+  addCargo(id, n) {
+    const add = Math.min(this.cargoFree(), n);
+    if (add > 0) { this.cargo[id] = this.cargoQty(id) + add; this.save(); }
+    return add;
+  }
 
   // Cost of the NEXT level, or null if maxed / unknown.
   costOf(id) {

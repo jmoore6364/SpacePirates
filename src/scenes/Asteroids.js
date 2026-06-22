@@ -23,8 +23,10 @@ export class Asteroids {
       mesh.scale.set(0.7 + Math.random() * 0.6, 0.7 + Math.random() * 0.6, 0.7 + Math.random() * 0.6);
       mesh.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
       scene.add(mesh);
+      const sx = Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z);
       this.rocks.push({
         mesh, radius,
+        hp: Math.round(radius * sx * 3),
         spin: new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4),
         drift: new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6),
       });
@@ -53,4 +55,36 @@ export class Asteroids {
     }
     return null;
   }
+
+  // First rock a projectile segment from→to passes through, else null (for mining).
+  hitTest(from, to) {
+    for (const r of this.rocks) {
+      const sx = Math.max(r.mesh.scale.x, r.mesh.scale.y, r.mesh.scale.z);
+      const rr = r.radius * sx;
+      if (segDistSq(r.mesh.position, from, to) < rr * rr) return r;
+    }
+    return null;
+  }
+
+  // Apply mining damage. Returns ore yield (>0) when the rock shatters, else 0.
+  damage(rock, dmg) {
+    rock.hp -= dmg;
+    if (rock.hp > 0) return 0;
+    this.scene.remove(rock.mesh);
+    rock.mesh.geometry.dispose();
+    this.rocks = this.rocks.filter((r) => r !== rock);
+    const sx = Math.max(rock.mesh.scale.x, rock.mesh.scale.y, rock.mesh.scale.z);
+    return Math.max(1, Math.round((rock.radius * sx) / 4));
+  }
+}
+
+// Squared distance from point P to segment AB (swept hit test).
+function segDistSq(p, a, b) {
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+  const apx = p.x - a.x, apy = p.y - a.y, apz = p.z - a.z;
+  const abLen = abx * abx + aby * aby + abz * abz;
+  let t = abLen > 0 ? (apx * abx + apy * aby + apz * abz) / abLen : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const dx = apx - abx * t, dy = apy - aby * t, dz = apz - abz * t;
+  return dx * dx + dy * dy + dz * dz;
 }

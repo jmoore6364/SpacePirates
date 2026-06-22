@@ -41,6 +41,7 @@ export class Combat {
     this.hull = this.maxHull;
     this.weaponDmg = stats.weapon;
 
+    this.asteroids = null; // optional Asteroids field (mining), set by the scene
     this.projectiles = []; // { mesh, vel, life, dmg, hostile }
     this.enemies = [];     // { mesh, vel, hp, cd }
     this.effects = [];     // { mesh, life, max, scaleRate }
@@ -336,6 +337,20 @@ export class Combat {
             hit = true;
             if (e.hp <= 0) this._killEnemy(e);
             break;
+          }
+        }
+        // mining: player bolts chip asteroids and shatter them into ore
+        if (!hit && this.asteroids) {
+          const rock = this.asteroids.hitTest(from, to);
+          if (rock) {
+            hit = true;
+            this._spark(to, 0xd9b06a, 0.5);
+            const ore = this.asteroids.damage(rock, p.dmg);
+            if (ore > 0) {
+              this._explosion(rock.mesh.position, 0xd9b06a);
+              const got = player.addCargo('ore', ore);
+              this.onEvent({ type: 'mined', ore: got, spilled: ore - got });
+            }
           }
         }
       }

@@ -53,6 +53,7 @@ export class SpaceScene {
     this.asteroids = maw
       ? new Asteroids(this.scene, { center: maw.position, count: 46, inner: maw.userData.world.r * 1.7, outer: maw.userData.world.r * 5 })
       : null;
+    this.combat.asteroids = this.asteroids; // let bolts mine the belt
     this._astCd = 0;
 
     this.chase = null;

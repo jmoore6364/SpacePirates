@@ -341,6 +341,23 @@ async function main() {
       await page.evaluate(() => window.__VC__.space.travelTo('neon-haven'));
     }
 
+    // mining: shatter a rock with the blaster and collect Raw Ore in the hold
+    await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat; const a = s.asteroids; const p = window.__VC__.player;
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = []; c.boss = null;
+      p.cargo = {}; // clear the hold so ore has room
+      const f = s.ship.forward();
+      const rock = a.rocks[0];
+      rock.mesh.position.copy(s.ship.position).addScaledVector(f, 80);
+      rock.hp = 1; // one good hit shatters it
+    });
+    await page.evaluate(() => window.__VC__.input.press('KeyJ'));
+    await page.waitForFunction(() => window.__VC__.player.cargoQty('ore') > 0, { timeout: 6000 }).catch(() => {});
+    await page.evaluate(() => window.__VC__.input.release('KeyJ'));
+    const ore = await page.evaluate(() => window.__VC__.player.cargoQty('ore'));
+    if (!(ore > 0)) errors.push('mining a rock yielded no ore');
+    console.log(`› mining: ore in hold = ${ore}`);
+
     // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point
     await page.evaluate(() => window.__VC__.player.addXp(500)); // guarantee a skill point
     await page.keyboard.press('k');
