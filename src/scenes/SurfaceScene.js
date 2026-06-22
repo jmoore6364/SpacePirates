@@ -158,13 +158,14 @@ export class SurfaceScene {
     const tf = tm && tm.active ? -tm.y : 0;
     const tt = tm && tm.active ? tm.x : 0;
     return {
-      // forward/back is keys (or touch stick Y) — not the mouse
-      forward: clampU(i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']) + tf),
-      // A/D + touch stick X turn the free look-yaw at a rate (sign flipped)
-      turn: -clampU(i.axis(['ArrowLeft', 'KeyA'], ['ArrowRight', 'KeyD']) + tt),
-      strafe: i.axis(['KeyQ'], ['KeyE']),
-      // R/F look up/down (R up = negative pitch)
-      pitch: i.axis(['KeyF'], ['KeyR']),
+      // forward/back: keys (action map), touch stick Y, or gamepad left-stick Y
+      forward: clampU(i.actAxis('pitchDown', 'pitchUp') + tf - i.pad.moveY),
+      // turn: A/D (action map) + touch stick X + gamepad right-stick X (sign flipped)
+      turn: -clampU(i.actAxis('yawLeft', 'yawRight') + tt + i.pad.lookX),
+      // strafe: Q/E (action map) + gamepad left-stick X
+      strafe: clampU(i.actAxis('rollLeft', 'rollRight') + i.pad.moveX),
+      // R/F look up/down (R up = negative pitch) + gamepad right-stick Y
+      pitch: clampU(i.actAxis('lookDown', 'lookUp') + i.pad.lookY),
     };
   }
 

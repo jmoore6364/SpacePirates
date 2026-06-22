@@ -100,14 +100,14 @@ export class SpaceScene {
     if (!i || this.inputLocked) return {};
     const clampU = (v) => (v < -1 ? -1 : v > 1 ? 1 : v);
     const m = i.mouseSteer();
-    // mouse: right => yaw right, cursor up => pitch up. Blend with keyboard.
-    const kbPitch = i.axis(['ArrowDown', 'KeyS'], ['ArrowUp', 'KeyW']);
-    const kbYaw = i.axis(['ArrowRight', 'KeyD'], ['ArrowLeft', 'KeyA']);
+    // blend keyboard (action map), mouse-steer, and gamepad sticks/triggers.
+    const kbPitch = i.actAxis('pitchDown', 'pitchUp');
+    const kbYaw = i.actAxis('yawRight', 'yawLeft');
     return {
-      pitch: clampU(kbPitch - m.y),
-      yaw: clampU(kbYaw - m.x),
-      roll: i.axis(['KeyE'], ['KeyQ']),
-      throttleDelta: i.axis(['ShiftLeft', 'ControlLeft'], ['Space']),
+      pitch: clampU(kbPitch - m.y - i.pad.steerY),       // stick up → pitch up
+      yaw: clampU(kbYaw - m.x - i.pad.steerX),           // stick right → yaw right
+      roll: clampU(i.actAxis('rollRight', 'rollLeft')),
+      throttleDelta: clampU(i.actAxis('brake', 'thrust') + i.pad.throttle),
     };
   }
 

@@ -140,6 +140,21 @@ async function main() {
     console.log(`› records: kills=${ach.kills}, first-blood unlocked=${ach.firstBlood}`);
     await page.evaluate(() => window.__VC__.statsPanel.close());
 
+    // #13 controls: open the remap panel, rebind an action, confirm it persists
+    await page.evaluate(() => window.__VC__.controlsPanel.open(window.__VC__.input));
+    await page.waitForFunction(() => window.__VC__.controlsPanel.isOpen === true, { timeout: 5000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass13-controls.png') });
+    const rebind = await page.evaluate(() => {
+      const i = window.__VC__.input;
+      i.setBinding('fire', 'KeyB');
+      const got = i.bindings.fire[0];
+      i.resetBindings();
+      return { got, reset: i.bindings.fire[0] };
+    });
+    if (rebind.got !== 'KeyB' || rebind.reset !== 'KeyJ') errors.push(`rebind/reset failed (${rebind.got}/${rebind.reset})`);
+    console.log(`› controls: rebind fire→${rebind.got}, reset→${rebind.reset}`);
+    await page.evaluate(() => window.__VC__.controlsPanel.close());
+
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => window.__VC__.menu.isOpen === false, { timeout: 5000 }).catch(() => {});
     console.log(`› pause menu opened+resumed: ${paused}`);

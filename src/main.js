@@ -11,6 +11,7 @@ import { MenuScreen } from './ui/MenuScreen.js';
 import { SavesPanel } from './ui/SavesPanel.js';
 import { StatsPanel } from './ui/StatsPanel.js';
 import { Tutorial } from './ui/Tutorial.js';
+import { ControlsPanel } from './ui/ControlsPanel.js';
 import { TouchControls } from './ui/TouchControls.js';
 import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
@@ -130,11 +131,13 @@ const savesPanel = new SavesPanel({
 });
 
 const statsPanel = new StatsPanel({});
+const controlsPanel = new ControlsPanel({});
 const menu = new MenuScreen({
   onResume: () => setPaused(false),
   onSave: () => { player.save(); saveSettings(); toast('Quick-saved.'); },
   onSaves: () => savesPanel.open(player.activeSlot),
   onStats: () => statsPanel.open(player),
+  onControls: () => controlsPanel.open(input),
   onQuit: () => { player.save(); saveSettings(); window.location.reload(); },
   onChange: applySetting,
 });
@@ -346,6 +349,7 @@ window.addEventListener('keydown', (e) => {
   // saves manager / records sit above the pause menu
   if (savesPanel.isOpen) { if (e.code === 'Escape') savesPanel.close(); return; }
   if (statsPanel.isOpen) { if (e.code === 'Escape') statsPanel.close(); return; }
+  if (controlsPanel.isOpen) { if (e.code === 'Escape' && !controlsPanel.capturing) controlsPanel.close(); return; }
   // pause menu owns input while open
   if (menu.isOpen) { if (e.code === 'Escape') setPaused(false); return; }
 
@@ -650,6 +654,7 @@ function renderHud() {
 
 const loop = new GameLoop({
   update: (dt) => {
+    input.pollGamepad(); // sample gamepad before sim + menu (works while paused too)
     if (paused) return; // freeze the sim; render keeps drawing the last frame
     scenes.update(dt);
     if (toastTimer > 0) {
@@ -706,7 +711,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel, touch,
-  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel, tutorial,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel, tutorial, controlsPanel,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },
