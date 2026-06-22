@@ -136,17 +136,17 @@ Tracked as GitHub issues — contributions welcome.
 - [#5](https://github.com/jmoore6364/SpacePirates/issues/5) World minimap
 - [#6](https://github.com/jmoore6364/SpacePirates/issues/6) Space sector / system map
 - [#7](https://github.com/jmoore6364/SpacePirates/issues/7) Menu & pause system (settings, volume, save, quit)
+- [#8](https://github.com/jmoore6364/SpacePirates/issues/8) Experience, levels & skill tree
+- [#9](https://github.com/jmoore6364/SpacePirates/issues/9) Shipyard — ship variety (buy/swap hulls)
+- [#10](https://github.com/jmoore6364/SpacePirates/issues/10) Fuel & jump-range
+- [#11](https://github.com/jmoore6364/SpacePirates/issues/11) Save slots + manual save/load
+- [#12](https://github.com/jmoore6364/SpacePirates/issues/12) Achievements & run stats
+- [#13](https://github.com/jmoore6364/SpacePirates/issues/13) Gamepad support & key remapping
+- [#14](https://github.com/jmoore6364/SpacePirates/issues/14) Tutorial / onboarding
+- [#15](https://github.com/jmoore6364/SpacePirates/issues/15) Living NPCs — wandering crowds, barks, named informant
+- [#16](https://github.com/jmoore6364/SpacePirates/issues/16) Weapons & armor (Armory) — on-foot loadout shop
 
-**Planned**
-- [#8 Experience, levels & skill tree](https://github.com/jmoore6364/SpacePirates/issues/8) — XP + perks for piloting/gunnery/trading/engineering.
-- [#9 Shipyard — ship variety](https://github.com/jmoore6364/SpacePirates/issues/9) — buy/swap distinct hulls.
-- [#10 Fuel & jump-range](https://github.com/jmoore6364/SpacePirates/issues/10) — fuel makes distance and routes matter.
-- [#11 Save slots + manual save/load](https://github.com/jmoore6364/SpacePirates/issues/11)
-- [#12 Achievements & run stats](https://github.com/jmoore6364/SpacePirates/issues/12)
-- [#13 Gamepad support & key remapping](https://github.com/jmoore6364/SpacePirates/issues/13)
-- [#14 Tutorial / onboarding](https://github.com/jmoore6364/SpacePirates/issues/14)
-- [#15 Living NPCs](https://github.com/jmoore6364/SpacePirates/issues/15) — wandering civilians, named characters, dialogue.
-- [#16 Weapons & armor (Armory)](https://github.com/jmoore6364/SpacePirates/issues/16) — personal loadout shop for on-foot combat.
+All tracked roadmap issues are shipped. New ideas welcome via the [issue tracker](https://github.com/jmoore6364/SpacePirates/issues).
 
 See the full [issue tracker](https://github.com/jmoore6364/SpacePirates/issues).
 
@@ -190,15 +190,17 @@ to `test-screenshots/` and failing on any console/WebGL error. Only *feel*
 
 ## Status
 
-Core game + first roadmap wave complete: arcade flight, 5 worlds with distinct
+The full tracked roadmap is complete: arcade flight, 5 worlds with distinct
 **terrain** and **lighting moods**, star-map + **spatial system map**, landing and
-on-foot **neon cities**, economy (upgrades / missions / dynamic **trading**),
-**space and on-foot combat** (three enemy archetypes, wanted level, Enforcers),
-**storyline quests** with dialogue, **follow markers / radar / minimap**, a
-**pause menu** with settings, and juice (bloom, shadows, screen shake, procedural
-audio, title, save/load).
+on-foot **neon cities** with **living crowds** and a named informant, economy
+(ship **upgrades** / **shipyard hulls** / missions / dynamic **trading** / **fuel**),
+**space and on-foot combat** (three enemy archetypes, wanted level, Enforcers, an
+**Armory** of personal weapons + armor, hit FX), **storyline quests** with dialogue,
+**XP / skill tree**, **achievements & run stats**, a first-run **tutorial**,
+**gamepad + key remapping**, mobile **touch controls**, **save slots**, and juice
+(bloom, shadows, screen shake, procedural audio, title).
 
-Roadmap #1–#7 are done; #8–#16 are planned (see the [Roadmap](#roadmap)). Desktop
+Roadmap #1–#16 are all shipped (see the [Roadmap](#roadmap)). Desktop
 packaging (Electron → `.exe`/Steam) is optional — see `docs/PACKAGING.md`.
 
 ## Credits
