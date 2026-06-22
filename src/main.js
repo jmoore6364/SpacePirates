@@ -659,6 +659,7 @@ function renderHud() {
         `<div style="color:#9effa0">FUE [${bar(player.fuel, player.maxFuel)}] ${Math.round(player.fuel)}</div>` +
         `<div style="color:#ffd24a">MSL ${'◆'.repeat(c.missiles)}${'◇'.repeat(Math.max(0, c.maxMissiles - c.missiles))} ${c.missiles}/${c.maxMissiles}</div>` +
         `<div class="wanted">WANTED ${stars}</div>` +
+        (c.wingman ? `<div style="color:#8effa0">✦ Wingman on your wing</div>` : '') +
         (c.enemies ? `<div class="hl">⚠ ${c.enemies} hostile${c.enemies > 1 ? 's' : ''}</div>` : '');
     }
 

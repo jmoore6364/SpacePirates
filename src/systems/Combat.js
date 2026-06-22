@@ -50,8 +50,10 @@ export class Combat {
     this.wanted = 0;
     this.kills = 0;
     this.boss = null; // active Warlord enemy entry, or null
+    this.wingman = null; // hired escort fighter, or null
     this._fireCd = 0;
     this._missileCd = 0;
+    this._wingCd = 0;
     this._spawnCd = 3;
     this._hitGrace = 0; // since last damage, for shield regen
     this._mat = {
@@ -76,10 +78,50 @@ export class Combat {
 
     this._spawnWaves(dt);
     this._updateEnemies(dt);
+    this._updateWingman(dt);
     this._updateProjectiles(dt);
     this._updateMissiles(dt);
     this._updateEffects(dt);
     this._regenShield(dt);
+  }
+
+  // A hired escort that flies in formation off the player's wing and fires on the
+  // nearest enemy. Invulnerable (enemies hunt the player); pure added firepower.
+  _updateWingman(dt) {
+    if (!player.hasWingman) {
+      if (this.wingman) { this.scene.remove(this.wingman.mesh); this.wingman = null; }
+      return;
+    }
+    if (!this.wingman) {
+      const mesh = buildWingmanMesh();
+      this.scene.add(mesh);
+      this.wingman = { mesh };
+    }
+    const w = this.wingman;
+    const right = this._tmp.set(1, 0, 0).applyQuaternion(this.ship.quaternion);
+    const fwd = this._tmp2.copy(FWD).applyQuaternion(this.ship.quaternion);
+    // formation point: off the right wing, slightly back and above
+    const form = this.ship.position.clone().addScaledVector(right, 16).addScaledVector(fwd, -6);
+    form.y += 4;
+    w.mesh.position.lerp(form, clamp(dt * 2.5, 0, 1));
+
+    // target nearest enemy and fire
+    let best = null, bd = Infinity;
+    for (const e of this.enemies) {
+      const d = w.mesh.position.distanceToSquared(e.mesh.position);
+      if (d < bd) { bd = d; best = e; }
+    }
+    this._wingCd -= dt;
+    if (best && bd < 700 * 700) {
+      w.mesh.lookAt(best.mesh.position);
+      if (this._wingCd <= 0) {
+        this._wingCd = 0.7;
+        const dir = this._tmp.copy(best.mesh.position).sub(w.mesh.position).normalize();
+        this._spawnProjectile(w.mesh.position.clone().addScaledVector(dir, 2), dir.clone(), false, 12);
+      }
+    } else {
+      w.mesh.lookAt(this.ship.position.clone().addScaledVector(fwd, 60));
+    }
   }
 
   fire() {
@@ -411,6 +453,7 @@ export class Combat {
     for (const m of this.missiles) { this.scene.remove(m.mesh); m.mesh.geometry.dispose(); }
     this.missiles = [];
     this.boss = null;
+    if (this.wingman) { this.scene.remove(this.wingman.mesh); this.wingman = null; } // re-forms on respawn
     this.shield = this.maxShield;
     this.hull = this.maxHull;
     this.wanted = 0;
@@ -473,6 +516,7 @@ export class Combat {
       wanted: this.wanted, enemies: this.enemies.length,
       missiles: player.missiles, maxMissiles: player.maxMissiles,
       boss: this.boss ? { name: this.boss.type.name, hp: Math.max(0, this.boss.hp), maxHp: this.boss.maxHp } : null,
+      wingman: !!this.wingman,
     };
   }
 }
@@ -487,6 +531,23 @@ function segDistSq(p, a, b) {
   t = t < 0 ? 0 : t > 1 ? 1 : t;
   const dx = apx - abx * t, dy = apy - aby * t, dz = apz - abz * t;
   return dx * dx + dy * dy + dz * dz;
+}
+
+// Friendly escort fighter — cyan/green so it never reads as a threat.
+function buildWingmanMesh() {
+  const g = new THREE.Group();
+  const hull = new THREE.MeshStandardMaterial({ color: 0x2a6e5a, roughness: 0.5, metalness: 0.6 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0x8effa0 });
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.8, 3.6, 6), hull);
+  body.rotation.x = -Math.PI / 2; g.add(body);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 1.1), hull);
+  wing.position.z = 0.6; g.add(wing);
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), glow);
+  eye.position.set(0, 0, -1.4); g.add(eye);
+  const eng = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), glow);
+  eng.position.set(0, 0, 1.9); g.add(eng);
+  g.scale.setScalar(1.1);
+  return g;
 }
 
 function buildEnemyMesh(type) {

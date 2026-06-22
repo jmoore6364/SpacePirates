@@ -358,6 +358,24 @@ async function main() {
     if (!(ore > 0)) errors.push('mining a rock yielded no ore');
     console.log(`› mining: ore in hold = ${ore}`);
 
+    // wingman: hire an escort, confirm it spawns in space and fires on a hostile
+    const wing = await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat; const p = window.__VC__.player;
+      p.hasWingman = true; // hire directly
+      c.projectiles.forEach((x) => s.scene.remove(x.mesh)); c.projectiles = [];
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = []; c.boss = null;
+      c._spawnEnemy(s.ship.position.clone().addScaledVector(s.ship.forward(), 120));
+      return { hired: p.hasWingman };
+    });
+    await sleep(900); // let the wingman form up and open fire
+    const wingOut = await page.evaluate(() => ({
+      spawned: !!window.__VC__.space.combat.wingman,
+      friendlyBolts: window.__VC__.space.combat.projectiles.filter((p) => !p.hostile).length,
+    }));
+    if (!wingOut.spawned) errors.push('wingman did not spawn after hiring');
+    console.log(`› wingman: hired=${wing.hired}, spawned=${wingOut.spawned}, friendly bolts in flight=${wingOut.friendlyBolts}`);
+    await page.evaluate(() => window.__VC__.space.travelTo('neon-haven'));
+
     // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point
     await page.evaluate(() => window.__VC__.player.addXp(500)); // guarantee a skill point
     await page.keyboard.press('k');

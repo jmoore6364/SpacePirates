@@ -30,6 +30,7 @@ const DEFAULTS = () => ({
   maxFuel: 100,
   missiles: 6,                  // homing-missile ammo (space secondary weapon)
   maxMissiles: 6,
+  hasWingman: false,            // hired escort fighter (helps in space combat)
   sidearm: 'blaster',           // equipped on-foot weapon
   sidearmsOwned: ['blaster'],
   armor: 'flightsuit',          // equipped on-foot armor
@@ -43,6 +44,9 @@ export const fuelCost = (distance) => Math.max(1, Math.ceil(distance / 55));
 
 // Price per homing missile when restocking ordnance.
 export const MISSILE_PRICE = 45;
+
+// One-time cost to hire a wingman escort.
+export const WINGMAN_PRICE = 3000;
 
 // Skill tree (data-driven). Each level adds a flat perk to a derived stat.
 export const SKILLS = {
@@ -73,6 +77,7 @@ export class Player {
       hull: this.hull, hullsOwned: this.hullsOwned,
       fuel: this.fuel, maxFuel: this.maxFuel,
       missiles: this.missiles, maxMissiles: this.maxMissiles,
+      hasWingman: this.hasWingman,
       sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
       armor: this.armor, armorsOwned: this.armorsOwned,
       runStats: this.runStats, achievements: this.achievements,
@@ -148,6 +153,15 @@ export class Player {
     if (cost <= 0 || this.credits < cost) return false;
     this.credits -= cost;
     this.missiles = this.maxMissiles;
+    this.save();
+    return true;
+  }
+
+  // --- wingman escort ---
+  buyWingman() {
+    if (this.hasWingman || this.credits < WINGMAN_PRICE) return false;
+    this.credits -= WINGMAN_PRICE;
+    this.hasWingman = true;
     this.save();
     return true;
   }
