@@ -119,6 +119,21 @@ async function main() {
     if (!slot2.has) errors.push('save slot 2 was not written');
     console.log(`› saves: wrote slot 2 = ${slot2.has}, active slot ${slot2.active}`);
     await page.evaluate(() => window.__VC__.savesPanel.close());
+
+    // #12 records: stats + achievements panel opens from the menu and unlocks fire once
+    const ach = await page.evaluate(() => {
+      const p = window.__VC__.player;
+      const before = p.achievements.length;
+      p.bumpStat('kills'); p.bumpStat('kills'); // cross first-blood (idempotent re-check)
+      return { firstBlood: p.hasAchievement('first-blood'), kills: p.runStats.kills, grew: p.achievements.length > before };
+    });
+    if (!ach.firstBlood) errors.push('first-blood achievement did not unlock');
+    await page.evaluate(() => window.__VC__.statsPanel.open(window.__VC__.player));
+    await page.waitForFunction(() => window.__VC__.statsPanel.isOpen === true, { timeout: 5000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass12-records.png') });
+    console.log(`› records: kills=${ach.kills}, first-blood unlocked=${ach.firstBlood}`);
+    await page.evaluate(() => window.__VC__.statsPanel.close());
+
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => window.__VC__.menu.isOpen === false, { timeout: 5000 }).catch(() => {});
     console.log(`› pause menu opened+resumed: ${paused}`);

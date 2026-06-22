@@ -9,6 +9,7 @@ import { Shop, MissionBoard, Market, Dialogue, Skills, Shipyard, Armory } from '
 import { TitleScreen } from './ui/TitleScreen.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { SavesPanel } from './ui/SavesPanel.js';
+import { StatsPanel } from './ui/StatsPanel.js';
 import { TouchControls } from './ui/TouchControls.js';
 import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
@@ -127,13 +128,18 @@ const savesPanel = new SavesPanel({
   onDelete: (slot) => { deleteSlot(savesPanel.store, slot); toast(`Deleted slot ${slot + 1}.`); },
 });
 
+const statsPanel = new StatsPanel({});
 const menu = new MenuScreen({
   onResume: () => setPaused(false),
   onSave: () => { player.save(); saveSettings(); toast('Quick-saved.'); },
   onSaves: () => savesPanel.open(player.activeSlot),
+  onStats: () => statsPanel.open(player),
   onQuit: () => { player.save(); saveSettings(); window.location.reload(); },
   onChange: applySetting,
 });
+
+// achievement unlocks → toast + chime (Player fires this once per achievement)
+player.onUnlock = (a) => { audio.chime(); toast(`🏆 Achievement — ${a.name}: ${a.desc}`); };
 
 function enterSpace(worldId) {
   exitLook(); // space uses absolute mouse steering, not pointer lock
@@ -146,6 +152,7 @@ function enterSpace(worldId) {
       case 'playerHit': audio.hit(); break;
       case 'kill': {
         audio.explosion();
+        player.bumpStat('kills');
         awardXp(20 + (space?.combat?.wanted || 0) * 4);
         const q = questLog.onKill();
         const done = missionLog.recordKill();
@@ -158,7 +165,7 @@ function enterSpace(worldId) {
         else toast(`Target destroyed — bounty +${e.bounty} cr`);
         break;
       }
-      case 'destroyed': audio.explosion(); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
+      case 'destroyed': audio.explosion(); player.bumpStat('deaths'); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
     }
   };
   scenes.switchTo(Mode.SPACE, space);
@@ -178,6 +185,7 @@ const starMap = new StarMap({
       return;
     }
     player.spendFuel(cost);
+    player.bumpStat('jumps');
     space.inputLocked = false;
     space.travelTo(worldId);
     scenes.mode = Mode.SPACE;
@@ -208,11 +216,12 @@ function land(world) {
       switch (e.type) {
         case 'blaster': audio.laser(); renderer.addShake(0.06); break; // recoil kick
         case 'playerHurt': audio.hit(); renderer.addShake(0.4); break;
-        case 'enforcerDown': audio.explosion(); renderer.addShake(0.5); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
-        case 'playerDown': audio.explosion(); renderer.addShake(1.0); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
+        case 'enforcerDown': audio.explosion(); renderer.addShake(0.5); player.bumpStat('enforcers'); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
+        case 'playerDown': audio.explosion(); renderer.addShake(1.0); player.bumpStat('deaths'); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
       }
     };
     scenes.switchTo(Mode.SURFACE, surface);
+    player.bumpStat('landings');
     // advance the living economy each time you make planetfall
     const news = tickMarket(WORLDS);
 
@@ -223,6 +232,7 @@ function land(world) {
 
     const done = missionLog.arriveAt(world.id);
     if (done.length) {
+      player.bumpStat('deliveries', done.length);
       awardXp(30 * done.length);
       const sum = done.reduce((a, m) => a + m.reward, 0);
       toast(`Delivered ${done.length} job(s) at ${world.name} — +${sum} cr`);
@@ -305,8 +315,9 @@ window.addEventListener('keydown', (e) => {
 
   if (!started) return; // title screen owns input until launch
 
-  // saves manager sits above the pause menu
+  // saves manager / records sit above the pause menu
   if (savesPanel.isOpen) { if (e.code === 'Escape') savesPanel.close(); return; }
+  if (statsPanel.isOpen) { if (e.code === 'Escape') statsPanel.close(); return; }
   // pause menu owns input while open
   if (menu.isOpen) { if (e.code === 'Escape') setPaused(false); return; }
 
@@ -664,7 +675,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel, touch,
-  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },

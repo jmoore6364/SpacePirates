@@ -93,6 +93,11 @@ export class AudioManager {
   explosion() { this._noise({ dur: 0.6, gain: 0.4, lowpass: 900 }); this._blip({ type: 'sine', freq: 120, dur: 0.5, gain: 0.25, sweep: -80 }); }
   blip()  { this._blip({ type: 'triangle', freq: 660, dur: 0.08, gain: 0.18 }); }
   warp()  { this._blip({ type: 'sine', freq: 220, dur: 0.6, gain: 0.25, sweep: 900 }); }
+  // rising two-note flourish for an achievement unlock
+  chime() {
+    this._blip({ type: 'triangle', freq: 700, dur: 0.12, gain: 0.16 });
+    setTimeout(() => this._blip({ type: 'triangle', freq: 1050, dur: 0.22, gain: 0.16, sweep: 220 }), 110);
+  }
 
   startMusic() {
     if (!this.ctx || this._musicNodes.length) return;

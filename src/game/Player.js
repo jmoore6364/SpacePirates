@@ -3,6 +3,7 @@
 // derived ship stats the scenes read.
 import { HULLS, hullById } from './Hulls.js';
 import { WEAPONS, weaponById, ARMORS, armorById } from './Weapons.js';
+import { ACHIEVEMENTS } from './Achievements.js';
 import { writeSlot, readSlot, mostRecentSlot, migrateLegacy, hasAnySave } from './SaveSlots.js';
 
 export const UPGRADES = {
@@ -31,6 +32,8 @@ const DEFAULTS = () => ({
   sidearmsOwned: ['blaster'],
   armor: 'flightsuit',          // equipped on-foot armor
   armorsOwned: ['flightsuit'],
+  runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0 },
+  achievements: [],             // unlocked achievement ids
 });
 
 // Fuel a fast-travel jump costs, by travel distance (manual flight is free).
@@ -66,6 +69,7 @@ export class Player {
       fuel: this.fuel, maxFuel: this.maxFuel,
       sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
       armor: this.armor, armorsOwned: this.armorsOwned,
+      runStats: this.runStats, achievements: this.achievements,
     };
   }
 
@@ -225,7 +229,29 @@ export class Player {
 
   addCredits(n) {
     this.credits = Math.max(0, this.credits + Math.round(n));
+    if (n > 0) { this.runStats.creditsEarned += Math.round(n); this._checkAchievements(); }
     this.save();
+  }
+
+  // --- run stats & achievements (#12) ---
+  // Increment a lifetime stat and unlock any achievements it crosses.
+  bumpStat(key, n = 1) {
+    if (!this.runStats) this.runStats = {};
+    this.runStats[key] = (this.runStats[key] || 0) + n;
+    this._checkAchievements();
+    this.save();
+  }
+
+  hasAchievement(id) { return this.achievements.includes(id); }
+
+  // Fire each newly-met achievement once; host sets `onUnlock` for toast + chime.
+  _checkAchievements() {
+    for (const a of ACHIEVEMENTS) {
+      if (!this.achievements.includes(a.id) && a.test(this.runStats)) {
+        this.achievements.push(a.id);
+        if (this.onUnlock) this.onUnlock(a);
+      }
+    }
   }
 
   // Derived ship stats: active hull base + upgrade levels + skill perks.
