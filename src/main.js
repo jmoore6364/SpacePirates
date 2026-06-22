@@ -10,6 +10,7 @@ import { TitleScreen } from './ui/TitleScreen.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { SavesPanel } from './ui/SavesPanel.js';
 import { StatsPanel } from './ui/StatsPanel.js';
+import { Tutorial } from './ui/Tutorial.js';
 import { TouchControls } from './ui/TouchControls.js';
 import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
@@ -141,13 +142,18 @@ const menu = new MenuScreen({
 // achievement unlocks → toast + chime (Player fires this once per achievement)
 player.onUnlock = (a) => { audio.chime(); toast(`🏆 Achievement — ${a.name}: ${a.desc}`); };
 
+// first-run onboarding (#14) — shown once on a fresh game, persists a done flag
+const TUT_KEY = 'voidcorsair.tutorialDone';
+const tutorialDone = () => { try { return localStorage.getItem(TUT_KEY) === '1'; } catch { return false; } };
+const tutorial = new Tutorial({ onDone: () => { try { localStorage.setItem(TUT_KEY, '1'); } catch { /* ignore */ } } });
+
 function enterSpace(worldId) {
   exitLook(); // space uses absolute mouse steering, not pointer lock
   space = new SpaceScene(input);
   space.active = started; // stays paused behind the title screen
   space.onEvent = (e) => {
     switch (e.type) {
-      case 'fire': audio.laser(); break;
+      case 'fire': audio.laser(); tutorial.mark('fired'); break;
       case 'hit': break;
       case 'playerHit': audio.hit(); break;
       case 'kill': {
@@ -214,7 +220,7 @@ function land(world) {
     surface = new SurfaceScene(input, world, threat, questLog);
     surface.onEvent = (e) => {
       switch (e.type) {
-        case 'blaster': audio.laser(); renderer.addShake(0.06); break; // recoil kick
+        case 'blaster': audio.laser(); renderer.addShake(0.06); tutorial.mark('fired'); break; // recoil kick
         case 'playerHurt': audio.hit(); renderer.addShake(0.4); break;
         case 'enforcerDown': audio.explosion(); renderer.addShake(0.5); player.bumpStat('enforcers'); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
         case 'playerDown': audio.explosion(); renderer.addShake(1.0); player.bumpStat('deaths'); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
@@ -271,6 +277,7 @@ function talkToVex(world) {
 }
 
 function openInteract(world, kind) {
+  tutorial.mark('interacted');
   if (kind === 'quest') { talkToVex(world); return; }
   surface.inputLocked = true;
   exitLook();
@@ -288,6 +295,7 @@ function openInteract(world, kind) {
 }
 
 function takeoff(world) {
+  tutorial.mark('tookOff');
   transition(() => {
     enterSpace(world.id);
     toast(`Lifting off from ${world.name}.`);
@@ -363,6 +371,7 @@ window.addEventListener('keydown', (e) => {
           fuel: player.fuel,
         });
         space.inputLocked = true; scenes.mode = Mode.MAP;
+        tutorial.mark('mapOpen');
       }
       e.preventDefault();
       break;
@@ -648,6 +657,7 @@ const loop = new GameLoop({
       if (toastTimer <= 0) el.toast.classList.remove('show');
     }
     updateMarkers();
+    if (tutorial.active) tutorial.update({ mode: scenes.mode, speed: scenes.current?.hud?.speed || 0 });
     hudTimer += dt;
     if (hudTimer >= 0.12) { hudTimer = 0; renderHud(); }
   },
@@ -685,6 +695,7 @@ const titleScreen = new TitleScreen({
     audio.resume();
     audio.startMusic();
     toast(isNew ? 'New game — fly safe out there, Corsair.' : 'Welcome back, Corsair.');
+    if (isNew && !tutorialDone()) tutorial.start(); // guided first-run onboarding
   },
 });
 
@@ -695,7 +706,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel, touch,
-  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel, tutorial,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },

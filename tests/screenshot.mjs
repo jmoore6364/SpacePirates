@@ -97,6 +97,12 @@ async function main() {
     }));
     console.log(`› launched: mode=${boot.started}, bloom=${boot.bloom}, audioCtx=${boot.audioCtx}`);
 
+    // #14 tutorial: a fresh game shows the onboarding banner on step 1
+    const tut = await page.evaluate(() => ({ active: window.__VC__.tutorial.active, step: window.__VC__.tutorial.step }));
+    if (!tut.active || tut.step !== 0) errors.push(`tutorial did not start on new game (active=${tut.active}, step=${tut.step})`);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass14-tutorial.png') });
+    console.log(`› tutorial: active=${tut.active}, step=${tut.step}`);
+
     // resting frame
     await sleep(600);
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass1-rest.png') });
