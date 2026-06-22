@@ -11,6 +11,14 @@ const BOLT_LIFE = 1.4;
 const CHEST = 1.6;
 const HP_REGEN = 6; // per second after a lull
 
+// On-foot enforcer archetypes — distinct HP, pace, range and threat (mirrors the
+// space enemy roster). grunt is the original baseline.
+const ENFORCER_TYPES = {
+  grunt:  { hp: 40, speed: 11, ideal: 16, fireCd: 1.6, dmg: 8,  bounty: 50,  scale: 1.0,  color: 0xff3b50 },
+  heavy:  { hp: 95, speed: 7,  ideal: 13, fireCd: 1.9, dmg: 16, bounty: 110, scale: 1.35, color: 0xff7a3c },
+  sniper: { hp: 28, speed: 9,  ideal: 30, fireCd: 2.6, dmg: 22, bounty: 90,  scale: 0.9,  color: 0xc06bff },
+};
+
 export class GroundCombat {
   constructor(scene, character, input, { onEvent, spawn, groundY, colliders } = {}) {
     this.scene = scene;
@@ -53,12 +61,21 @@ export class GroundCombat {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = 36 + Math.random() * 26;
-      this.spawnEnforcer(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+      this.spawnEnforcer(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r), this._pickEnforcer());
     }
   }
 
-  spawnEnforcer(pos) {
-    const mesh = buildEnforcer();
+  // weighted enforcer archetype mix (grunts common, heavies/snipers rarer)
+  _pickEnforcer() {
+    const r = Math.random();
+    if (r < 0.2) return 'heavy';
+    if (r < 0.45) return 'sniper';
+    return 'grunt';
+  }
+
+  spawnEnforcer(pos, typeKey = 'grunt') {
+    const type = ENFORCER_TYPES[typeKey] || ENFORCER_TYPES.grunt;
+    const mesh = buildEnforcer(type);
     mesh.position.copy(pos);
     mesh.position.y = this.groundY(pos.x, pos.z);
     // record materials (built fresh per enforcer) so we can flash them red on hit
@@ -70,7 +87,7 @@ export class GroundCombat {
       }
     });
     this.scene.add(mesh);
-    this.enemies.push({ mesh, hp: 40, cd: 1 + Math.random() * 1.5, mats, flash: 0 });
+    this.enemies.push({ mesh, type, hp: type.hp, cd: 1 + Math.random() * 1.5, mats, flash: 0 });
   }
 
   update(dt) {
@@ -166,9 +183,9 @@ export class GroundCombat {
       to.y = 0;
       const dist = to.length();
       to.normalize();
-      const ideal = 16;
-      if (dist > ideal + 2) e.mesh.position.addScaledVector(to, 11 * dt);
-      else if (dist < ideal - 2) e.mesh.position.addScaledVector(to, -8 * dt);
+      const ideal = e.type.ideal;
+      if (dist > ideal + 2) e.mesh.position.addScaledVector(to, e.type.speed * dt);
+      else if (dist < ideal - 2) e.mesh.position.addScaledVector(to, -e.type.speed * 0.7 * dt);
       e.mesh.position.y = this.groundY(e.mesh.position.x, e.mesh.position.z);
       e.mesh.rotation.y = Math.atan2(to.x, to.z);
 
@@ -184,11 +201,11 @@ export class GroundCombat {
 
       e.cd -= dt;
       if (dist < 60 && e.cd <= 0) {
-        e.cd = 1.6 + Math.random();
+        e.cd = e.type.fireCd + Math.random();
         const pChest = this.groundY(p.x, p.z) + CHEST;
         const eChest = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
         const dir = this._tmp2.copy(p).setY(pChest).sub(this._tmp.copy(e.mesh.position).setY(eChest)).normalize();
-        this._spawnBolt(e.mesh.position.clone().setY(eChest).addScaledVector(dir, 1.4), dir.clone(), true, 8);
+        this._spawnBolt(e.mesh.position.clone().setY(eChest).addScaledVector(dir, 1.4), dir.clone(), true, e.type.dmg);
       }
     }
   }
@@ -240,7 +257,7 @@ export class GroundCombat {
     this.scene.remove(e.mesh);
     e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.enemies = this.enemies.filter((x) => x !== e);
-    const bounty = 50;
+    const bounty = e.type?.bounty || 50;
     player.addCredits(bounty);
     this.onEvent({ type: 'enforcerDown', bounty });
   }
@@ -353,15 +370,27 @@ function raySphere(o, d, cx, cy, cz, r) {
   return t >= 0 ? t : 0;
 }
 
-function buildEnforcer() {
+function buildEnforcer(type = ENFORCER_TYPES.grunt) {
   const g = new THREE.Group();
-  const suit = new THREE.MeshStandardMaterial({ color: 0x5a1f28, roughness: 0.6, metalness: 0.3 });
-  const glow = new THREE.MeshStandardMaterial({ color: 0xff3b50, emissive: 0x661018, emissiveIntensity: 1, roughness: 0.3 });
+  const suitHex = new THREE.Color(type.color).multiplyScalar(0.32).getHex();
+  const suit = new THREE.MeshStandardMaterial({ color: suitHex, roughness: 0.6, metalness: 0.3 });
+  const glow = new THREE.MeshStandardMaterial({ color: type.color, emissive: type.color, emissiveIntensity: 1, roughness: 0.3 });
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.65, 1.3, 5, 10), suit);
   body.position.y = 1.6; g.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 10), suit);
   head.position.y = 2.7; g.add(head);
   const visor = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 8, 0, Math.PI), glow);
   visor.position.set(0, 2.7, 0.28); visor.rotation.x = Math.PI / 2; g.add(visor);
+  // heavies get shoulder pauldrons; snipers a long barrel — quick silhouette tells
+  if (type.scale >= 1.3) {
+    for (const sx of [-0.85, 0.85]) {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.7), suit);
+      pad.position.set(sx, 2.3, 0); g.add(pad);
+    }
+  } else if (type.ideal >= 25) {
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.4, 6), glow);
+    barrel.rotation.x = Math.PI / 2; barrel.position.set(0.5, 1.7, 0.9); g.add(barrel);
+  }
+  g.scale.setScalar(type.scale);
   return g;
 }
