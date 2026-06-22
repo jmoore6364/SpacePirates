@@ -6,6 +6,7 @@ import { ThirdPersonCamera } from '../core/ThirdPersonCamera.js';
 import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
 import { GroundCombat } from '../systems/GroundCombat.js';
+import { Crowd } from './Crowd.js';
 import { player } from '../game/Player.js';
 import { clamp } from '../util/math.js';
 
@@ -84,7 +85,17 @@ export class SurfaceScene {
     if (questLog && questLog.npcHere('vex', world.id)) {
       this._addVendor('quest', 'Vex', new THREE.Vector3(14, 0, 12), 0xffd24a);
     }
-    this._addAmbientNPCs();
+    // a named local you can chat with for a rumor / market tip
+    this._addVendor('informant', 'Informant', new THREE.Vector3(-14, 0, -14), 0xc0a0ff);
+
+    // living crowd: civilians wander, avoid buildings, scatter when shots fly
+    this.crowd = new Crowd(this.scene, {
+      colliders: this.colliders,
+      groundY: this.heightAt,
+      world,
+      bounds: 150,
+      onBark: (line) => { if (this.onEvent) this.onEvent({ type: 'bark', line }); },
+    });
 
     // on-foot blaster combat — enforcers come if you landed with heat on you
     this.ground = new GroundCombat(this.scene, this.character, input, {
@@ -126,22 +137,6 @@ export class SurfaceScene {
     this.scene.add(pl);
 
     this.interactables.push({ id, label, position: pos.clone(), orb, baseY: gy + 5.2, color });
-  }
-
-  _addAmbientNPCs() {
-    const palette = [0x8a93a8, 0x6f7fa8, 0xb5723a, 0x3f8f5a, 0x9a6fb0];
-    this.ambient = [];
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2;
-      const rad = 26 + (i % 3) * 9;
-      const npc = makeNPC(palette[i % palette.length]);
-      const nx = Math.cos(a) * rad, nz = Math.sin(a) * rad - 30;
-      const gy = this.heightAt ? this.heightAt(nx, nz) : 0;
-      npc.position.set(nx, gy, nz);
-      npc.rotation.y = a;
-      this.scene.add(npc);
-      this.ambient.push({ npc, base: npc.position.clone(), phase: i, groundY: gy });
-    }
   }
 
   onEnter(renderer) {
@@ -199,14 +194,17 @@ export class SurfaceScene {
     const eng = this.parkedShip.object.userData.engine;
     if (eng) eng.scale.setScalar(0.5 + Math.sin(this._enginePulse) * 0.06);
 
-    // vendor orbs bob; ambient NPCs sway
+    // vendor orbs bob
     this._npcPulse += dt;
     for (const it of this.interactables) {
       it.orb.position.y = it.baseY + Math.sin(this._npcPulse * 2 + it.position.x) * 0.25;
     }
-    for (const a of this.ambient) {
-      a.npc.position.y = a.groundY + Math.abs(Math.sin(this._npcPulse * 1.5 + a.phase)) * 0.12;
-      a.npc.rotation.y += dt * 0.2;
+
+    this.ground.update(dt);
+
+    // living crowd wanders; scatters when a firefight is on
+    if (this.crowd) {
+      this.crowd.update(dt, { playerPos: this.character.position, alarmed: this.ground.enemyCount > 0 });
     }
 
     // nearest interactable in reach
@@ -215,8 +213,6 @@ export class SurfaceScene {
       const d = Math.hypot(this.character.position.x - it.position.x, this.character.position.z - it.position.z);
       if (d < nd) { nd = d; near = it; }
     }
-
-    this.ground.update(dt);
 
     const distToPad = Math.hypot(this.character.position.x, this.character.position.z);
 

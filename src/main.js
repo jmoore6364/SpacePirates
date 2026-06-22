@@ -218,6 +218,7 @@ function land(world) {
         case 'playerHurt': audio.hit(); renderer.addShake(0.4); break;
         case 'enforcerDown': audio.explosion(); renderer.addShake(0.5); player.bumpStat('enforcers'); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
         case 'playerDown': audio.explosion(); renderer.addShake(1.0); player.bumpStat('deaths'); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
+        case 'bark': toast(`“${e.line}”`); break; // ambient civilian chatter
       }
     };
     scenes.switchTo(Mode.SURFACE, surface);
@@ -278,6 +279,7 @@ function openInteract(world, kind) {
   else if (kind === 'market') { market.open(player, world); panel = market; }
   else if (kind === 'shipyard') { shipyard.open(player); panel = shipyard; }
   else if (kind === 'armory') { armory.open(player); panel = armory; }
+  else if (kind === 'informant') { dialogue.open('INFORMANT', rumorLines(world), () => {}); panel = dialogue; }
   else {
     const offers = offersByWorld[world.id] || (offersByWorld[world.id] = generateOffers(world.id));
     missionBoard.open(player, missionLog, offers);
@@ -290,6 +292,24 @@ function takeoff(world) {
     enterSpace(world.id);
     toast(`Lifting off from ${world.name}.`);
   });
+}
+
+// Flavor + a useful market tip for the named Informant NPC.
+function rumorLines(world) {
+  const lines = [`"Welcome to ${world.name}. ${world.blurb}"`];
+  const evs = activeEvents();
+  const tip = evs.find((e) => e.world !== world.id) || evs[0];
+  if (tip) {
+    const cw = WORLDS.find((x) => x.id === tip.world)?.name || tip.world;
+    const cn = commodityById(tip.commodity)?.name || tip.commodity;
+    lines.push(tip.kind === 'shortage'
+      ? `"Word is ${cn} is scarce on ${cw} — haul some there and you'll clean up."`
+      : `"There's a ${cn} glut on ${cw}. Buy cheap there before it recovers."`);
+  } else {
+    lines.push('"Markets are quiet. Run a delivery or hunt a bounty to make rent."');
+  }
+  lines.push('"Keep your nose clean and the Enforcers off your tail."');
+  return lines;
 }
 
 function commodityLabel(ev) {
