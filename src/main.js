@@ -45,6 +45,8 @@ const el = {
   markers: document.getElementById('markers'),
   minimap: document.getElementById('minimap'),
   reticle: document.getElementById('reticle'),
+  bossBar: document.getElementById('boss-bar'),
+  bossFill: document.querySelector('#boss-bar .bb-fill'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -177,6 +179,12 @@ function enterSpace(worldId) {
         break;
       }
       case 'destroyed': audio.explosion(); player.bumpStat('deaths'); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
+      case 'bossSpawn': audio.warp(); renderer.addShake(0.6); toast(`⚠ WARLORD INBOUND — a pirate capital ship is hunting you!`); break;
+      case 'bossKill':
+        audio.explosion(); audio.chime(); renderer.addShake(1.2);
+        player.bumpStat('bosses'); awardXp(200);
+        toast(`★ WARLORD DESTROYED — bounty +${e.bounty} cr. The heat clears.`);
+        break;
     }
   };
   scenes.switchTo(Mode.SPACE, space);
@@ -589,8 +597,13 @@ function renderHud() {
   const obj = questLog.objective();
   el.quest.textContent = obj ? `◈ ${obj}` : '';
   const h = scenes.current?.hud;
-  if (!h) { el.reticle.classList.remove('show'); return; }
+  if (!h) { el.reticle.classList.remove('show'); el.bossBar.classList.remove('show'); return; }
   el.reticle.classList.toggle('show', !!h.onFoot);
+
+  // boss health bar (space Warlord fight)
+  const boss = (!h.onFoot && h.combat && h.combat.boss) ? h.combat.boss : null;
+  el.bossBar.classList.toggle('show', !!boss);
+  if (boss) el.bossFill.style.width = `${Math.round((100 * boss.hp) / boss.maxHp)}%`;
 
   if (h.onFoot) {
     el.throttle.textContent = `◈ ${h.world.name}`;

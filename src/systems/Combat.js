@@ -23,6 +23,8 @@ export const ENEMY_TYPES = {
   scout:   { name: 'Scout',   hp: 18, speed: 175, ideal: 150, range: 300, fireCd: 1.7, dmg: 6,  bounty: 45,  scale: 0.8, color: 0x66e0ff, strafe: 0.95 },
   raider:  { name: 'Raider',  hp: 34, speed: 120, ideal: 180, range: 360, fireCd: 1.4, dmg: 9,  bounty: 70,  scale: 1.0, color: 0xff5b6e, strafe: 0.6 },
   gunship: { name: 'Gunship', hp: 84, speed: 78,  ideal: 230, range: 440, fireCd: 1.0, dmg: 17, bounty: 150, scale: 1.7, color: 0xffa23c, strafe: 0.2 },
+  // boss: a pirate Warlord capital ship that hunts you at max heat
+  warlord: { name: 'Warlord', hp: 520, speed: 55, ideal: 210, range: 560, fireCd: 0.9, dmg: 14, bounty: 1200, scale: 3.0, color: 0xff3b50, strafe: 0.35, volley: 3, boss: true },
 };
 
 export class Combat {
@@ -46,6 +48,7 @@ export class Combat {
 
     this.wanted = 0;
     this.kills = 0;
+    this.boss = null; // active Warlord enemy entry, or null
     this._fireCd = 0;
     this._missileCd = 0;
     this._spawnCd = 3;
@@ -204,6 +207,9 @@ export class Combat {
   }
 
   _spawnWaves(dt) {
+    // at max heat a Warlord boss arrives to end the spree
+    if (this.wanted >= 5 && !this.boss) this._spawnBoss();
+
     const target = 2 + this.wanted; // more heat → more hunters
     if (this.enemies.length >= target || this._spawnCd > 0) return;
     this._spawnCd = 2.2;
@@ -231,11 +237,21 @@ export class Combat {
     const mesh = buildEnemyMesh(type);
     mesh.position.copy(pos);
     this.scene.add(mesh);
-    this.enemies.push({
+    const e = {
       mesh, type, vel: new THREE.Vector3(),
       hp: type.hp + this.wanted * 4,
       cd: 0.6 + Math.random() * type.fireCd,
-    });
+      isBoss: !!type.boss, maxHp: type.hp + this.wanted * 4,
+    };
+    this.enemies.push(e);
+    return e;
+  }
+
+  _spawnBoss() {
+    const ahead = FWD.clone().applyQuaternion(this.ship.quaternion).multiplyScalar(320);
+    const pos = this.ship.position.clone().add(ahead);
+    this.boss = this._spawnEnemy(pos, 'warlord');
+    this.onEvent({ type: 'bossSpawn', name: 'Warlord' });
   }
 
   _updateEnemies(dt) {
@@ -261,7 +277,17 @@ export class Combat {
       if (dist < t.range && e.cd <= 0) {
         e.cd = t.fireCd + Math.random() * 0.6;
         const dir = this._tmp2.copy(this.ship.position).sub(e.mesh.position).normalize();
-        this._spawnProjectile(e.mesh.position.clone().addScaledVector(dir, 3), dir.clone(), true, t.dmg + this.wanted);
+        const shots = t.volley || 1;
+        for (let k = 0; k < shots; k++) {
+          // spread a volley into a small fan
+          const d = dir.clone();
+          if (shots > 1) {
+            d.x += (k - (shots - 1) / 2) * 0.08;
+            d.y += (Math.random() - 0.5) * 0.05;
+            d.normalize();
+          }
+          this._spawnProjectile(e.mesh.position.clone().addScaledVector(d, 3 * t.scale), d, true, t.dmg + this.wanted);
+        }
       }
     }
   }
@@ -326,11 +352,20 @@ export class Combat {
 
   _killEnemy(e) {
     e._dead = true;
-    this._explosion(e.mesh.position, 0xff7a3c);
+    this._explosion(e.mesh.position, e.isBoss ? 0xff3b50 : 0xff7a3c);
+    if (e.isBoss) { this._explosion(e.mesh.position, 0xffd24a); this.boss = null; }
     this.scene.remove(e.mesh);
     e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.enemies = this.enemies.filter((x) => x !== e);
     this.kills += 1;
+
+    if (e.isBoss) {
+      const bounty = e.type.bounty;
+      player.addCredits(bounty);
+      this.wanted = 0; this.kills = 0; // the spree ends with the Warlord
+      this.onEvent({ type: 'bossKill', bounty, enemy: e.type.name });
+      return;
+    }
     this.wanted = clamp(Math.floor(this.kills / 2), 0, 5);
     const bounty = (e.type?.bounty || 60) + this.wanted * 10;
     player.addCredits(bounty);
@@ -360,6 +395,7 @@ export class Combat {
     this.enemies = [];
     for (const m of this.missiles) { this.scene.remove(m.mesh); m.mesh.geometry.dispose(); }
     this.missiles = [];
+    this.boss = null;
     this.shield = this.maxShield;
     this.hull = this.maxHull;
     this.wanted = 0;
@@ -421,6 +457,7 @@ export class Combat {
       hull: this.hull, maxHull: this.maxHull,
       wanted: this.wanted, enemies: this.enemies.length,
       missiles: player.missiles, maxMissiles: player.maxMissiles,
+      boss: this.boss ? { name: this.boss.type.name, hp: Math.max(0, this.boss.hp), maxHp: this.boss.maxHp } : null,
     };
   }
 }
@@ -442,6 +479,28 @@ function buildEnemyMesh(type) {
   const tint = new THREE.Color(type.color).multiplyScalar(0.4).getHex();
   const hull = new THREE.MeshStandardMaterial({ color: tint, roughness: 0.5, metalness: 0.6 });
   const glow = new THREE.MeshBasicMaterial({ color: type.color });
+
+  if (type.name === 'Warlord') {
+    // hulking capital ship: long armored spine, side batteries, menacing red eyes
+    const spine = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 7.5), hull);
+    g.add(spine);
+    const prow = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 6), hull);
+    prow.rotation.x = -Math.PI / 2; prow.position.z = -4.8; g.add(prow);
+    for (const sx of [-2.8, 2.8]) {
+      const nac = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 6, 8), hull);
+      nac.rotation.x = Math.PI / 2; nac.position.set(sx, 0, 0.6); g.add(nac);
+      const gun = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 3), hull);
+      gun.position.set(sx, 0, -2.4); g.add(gun);
+    }
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(9, 0.6, 3), hull);
+    wing.position.z = 1; g.add(wing);
+    for (const sx of [-1.2, 1.2]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 10), glow);
+      eye.position.set(sx, 0.4, -3.4); g.add(eye);
+    }
+    g.scale.setScalar(type.scale);
+    return g;
+  }
 
   if (type.name === 'Scout') {
     // small dart

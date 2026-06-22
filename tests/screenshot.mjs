@@ -298,6 +298,27 @@ async function main() {
     if (msl.kills <= mk0) errors.push('missile destroyed no target');
     console.log(`› missiles: ammo ${msl0}→${msl.missiles}, kills ${mk0}→${msl.kills}`);
 
+    // boss: a Warlord spawns at max heat, shows a health bar, and pays a big bounty
+    const bossInfo = await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat;
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = []; c.boss = null;
+      c.wanted = 5; c._spawnCd = 0; c._spawnBoss();
+      return { active: !!c.boss, hp: c.boss?.hp, name: c.boss?.type?.name };
+    });
+    if (!bossInfo.active) errors.push('boss did not spawn at max heat');
+    await sleep(200); // let the HUD draw the boss health bar
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass-boss.png') });
+    const credB = await page.evaluate(() => window.__VC__.player.credits);
+    await page.evaluate(() => { const c = window.__VC__.space.combat; if (c.boss) c._killEnemy(c.boss); });
+    const bossOut = await page.evaluate(() => ({
+      boss: window.__VC__.space.combat.boss, wanted: window.__VC__.space.combat.wanted,
+      credits: window.__VC__.player.credits, warlordAch: window.__VC__.player.hasAchievement('warlord-bane'),
+    }));
+    if (bossOut.boss) errors.push('boss not cleared after kill');
+    if (bossOut.credits <= credB) errors.push('boss kill paid no bounty');
+    if (!bossOut.warlordAch) errors.push('Warlord Bane achievement did not unlock');
+    console.log(`› boss: ${bossInfo.name} hp=${bossInfo.hp} → killed, bounty +${bossOut.credits - credB} cr, wanted→${bossOut.wanted}, ach=${bossOut.warlordAch}`);
+
     // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point
     await page.evaluate(() => window.__VC__.player.addXp(500)); // guarantee a skill point
     await page.keyboard.press('k');

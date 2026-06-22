@@ -69,6 +69,17 @@
       opacity: 0.92; pointer-events: none; display: none; }
     #minimap.show { display: block; }
 
+    /* boss health bar — top center during a Warlord fight */
+    #boss-bar { position: fixed; top: 22px; left: 50%; transform: translateX(-50%);
+      width: min(440px, 80vw); display: none; pointer-events: none; text-align: center; }
+    #boss-bar.show { display: block; }
+    #boss-bar .bb-label { font-size: 12px; letter-spacing: 4px; color: #ff5b6e;
+      text-shadow: 0 0 10px rgba(255,60,80,0.8); margin-bottom: 4px; }
+    #boss-bar .bb-track { height: 12px; background: rgba(40,8,12,0.7);
+      border: 1px solid #ff3b50; border-radius: 6px; overflow: hidden; box-shadow: 0 0 16px rgba(255,60,80,0.5); }
+    #boss-bar .bb-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff3b50, #ff8a5b);
+      transition: width 0.15s linear; }
+
     /* on-foot aiming reticle — fixed at screen center, shows where the blaster fires */
     #reticle { position: fixed; left: 50%; top: 50%; width: 30px; height: 30px;
       transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 6;
@@ -100,6 +111,7 @@
     <canvas id="minimap" width="170" height="170"></canvas>
     <div id="reticle"></div>
     <div id="hud-approach"></div>
+    <div id="boss-bar"><div class="bb-label">WARLORD</div><div class="bb-track"><div class="bb-fill"></div></div></div>
     <div id="hud-toast"></div>
   </div>
   <div id="loading">INITIALIZING SYSTEMS…</div>

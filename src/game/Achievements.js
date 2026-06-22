@@ -11,6 +11,7 @@ export const ACHIEVEMENTS = [
   { id: 'planetfall',    name: 'Planetfall',    desc: 'Land on worlds 5 times.',         test: (s) => s.landings >= 5 },
   { id: 'entrepreneur',  name: 'Entrepreneur',  desc: 'Earn 10,000 credits.',            test: (s) => s.creditsEarned >= 10000 },
   { id: 'magnate',       name: 'Magnate',       desc: 'Earn 50,000 credits.',            test: (s) => s.creditsEarned >= 50000 },
+  { id: 'warlord-bane',  name: 'Warlord Bane',  desc: 'Destroy a pirate Warlord.',       test: (s) => (s.bosses || 0) >= 1 },
 ];
 
 export const achievementById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -18,6 +19,7 @@ export const achievementById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
 // Labels for the stats readout, in display order.
 export const STAT_LABELS = [
   ['kills', 'Ships destroyed'],
+  ['bosses', 'Warlords downed'],
   ['enforcers', 'Enforcers downed'],
   ['deliveries', 'Deliveries'],
   ['jumps', 'Jumps'],
