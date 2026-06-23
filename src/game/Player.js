@@ -1,6 +1,7 @@
 // Renderer-agnostic player economy + ship upgrades. Persists to localStorage when
 // available (guarded so it stays unit-testable under Node). Upgrade levels feed
 // derived ship stats the scenes read.
+import { clamp } from '../util/math.js';
 import { HULLS, hullById } from './Hulls.js';
 import { WEAPONS, weaponById, ARMORS, armorById } from './Weapons.js';
 import { ACHIEVEMENTS } from './Achievements.js';
@@ -37,6 +38,7 @@ const DEFAULTS = () => ({
   armorsOwned: ['flightsuit'],
   runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0, bosses: 0, captains: 0, oreMined: 0 },
   achievements: [],             // unlocked achievement ids
+  rep: {},                      // per-world faction reputation (worldId → -100..100)
 });
 
 // Fuel a fast-travel jump costs, by travel distance (manual flight is free).
@@ -81,6 +83,7 @@ export class Player {
       sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
       armor: this.armor, armorsOwned: this.armorsOwned,
       runStats: this.runStats, achievements: this.achievements,
+      rep: this.rep,
     };
   }
 
@@ -139,6 +142,22 @@ export class Player {
 
   // Trade margin bonus from the Trading skill (0..0.15).
   tradeBonus() { return this.skillLevel('trading') * 0.03; }
+
+  // --- faction reputation (per world) ---
+  repOf(worldId) { return (this.rep && this.rep[worldId]) || 0; }
+  addRep(worldId, n) {
+    if (!this.rep) this.rep = {};
+    const v = clamp(this.repOf(worldId) + n, -100, 100);
+    this.rep[worldId] = v;
+    this.save();
+    return v;
+  }
+  // Friendly standing → better margins; hostile → worse. ±20% at the extremes.
+  repBonus(worldId) { return (this.repOf(worldId) / 100) * 0.2; }
+  repTier(worldId) {
+    const r = this.repOf(worldId);
+    return r <= -20 ? 'Hostile' : r < 0 ? 'Disliked' : r < 20 ? 'Neutral' : r < 50 ? 'Friendly' : 'Allied';
+  }
 
   // --- fuel ---
   canJump(cost) { return this.fuel >= cost; }

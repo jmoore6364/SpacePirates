@@ -639,6 +639,19 @@ async function main() {
     if (!(trade.credits < creditsPreTrade)) errors.push('market buy did not deduct credits');
     if (trade.cargo < 1) errors.push('market buy did not add cargo');
     console.log(`› bought cargo → hold ${trade.cargo}, credits ${creditsPreTrade}→${trade.credits}`);
+
+    // faction reputation: standing shows in the market header and shapes prices
+    const rep = await page.evaluate(() => {
+      const p = window.__VC__.player; const w = window.__VC__.surface.world;
+      p.addRep(w.id, 60); // become Allied here
+      window.__VC__.market.render();
+      const tier = p.repTier(w.id);
+      const shown = (document.querySelector('#vc-market .vc-sub')?.textContent || '').includes(tier);
+      return { tier, shown, rep: p.repOf(w.id) };
+    });
+    if (rep.tier !== 'Allied') errors.push(`rep did not reach Allied (got ${rep.tier})`);
+    if (!rep.shown) errors.push('standing not shown in market header');
+    console.log(`› reputation: standing=${rep.tier} (${rep.rep}), shown=${rep.shown}`);
     // #10 refuel: drain fuel then refuel at the market
     const fuelTrade = await page.evaluate(() => {
       const p = window.__VC__.player;

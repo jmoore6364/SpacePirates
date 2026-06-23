@@ -101,9 +101,14 @@ export function marketTable(worldId) {
   }));
 }
 
+// Combined trade margin: Trading skill + faction standing at this world.
+function marketBonus(player, worldId) {
+  return (player.tradeBonus ? player.tradeBonus() : 0) + (player.repBonus ? player.repBonus(worldId) : 0);
+}
+
 export function buy(player, worldId, commodityId, qty = 1) {
   if (qty <= 0) return { ok: false, reason: 'Nothing to buy.' };
-  const bonus = player.tradeBonus ? player.tradeBonus() : 0;
+  const bonus = marketBonus(player, worldId);
   const cost = Math.round(buyPrice(worldId, commodityId) * (1 - bonus)) * qty;
   if (player.credits < cost) return { ok: false, reason: 'Not enough credits.' };
   if (player.cargoFree() < qty) return { ok: false, reason: 'Cargo hold full.' };
@@ -116,7 +121,7 @@ export function buy(player, worldId, commodityId, qty = 1) {
 export function sell(player, worldId, commodityId, qty = 1) {
   const have = player.cargoQty(commodityId);
   if (qty <= 0 || have < qty) return { ok: false, reason: 'You have none to sell.' };
-  const bonus = player.tradeBonus ? player.tradeBonus() : 0;
+  const bonus = marketBonus(player, worldId);
   const gain = Math.round(sellPrice(worldId, commodityId) * (1 + bonus)) * qty;
   player.credits += gain;
   player.cargo[commodityId] = have - qty;

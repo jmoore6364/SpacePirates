@@ -234,7 +234,12 @@ function transition(midFn) {
 }
 
 function land(world) {
-  const threat = space?.combat?.wanted || 0;
+  const baseThreat = space?.combat?.wanted || 0;
+  // faction standing shapes the welcome: allies shield you, hostile ports pile on
+  const rep = player.repOf(world.id);
+  let threat = baseThreat;
+  if (rep >= 50) threat = Math.max(0, threat - 2);
+  else if (rep <= -20) threat += 1;
   transition(() => {
     surface = new SurfaceScene(input, world, threat, questLog);
     surface.onEvent = (e) => {
@@ -250,17 +255,20 @@ function land(world) {
     };
     scenes.switchTo(Mode.SURFACE, surface);
     player.bumpStat('landings');
+    // arriving with heat hurts your standing at this port
+    if (baseThreat > 0) player.addRep(world.id, -10);
     // advance the living economy each time you make planetfall
     const news = tickMarket(WORLDS);
 
     // quest travel/arrival progress
     const q = questLog.onArrive(world.id);
-    if (q.completed) { awardXp(120); toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`); }
+    if (q.completed) { awardXp(120); player.addRep(world.id, 15); toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`); }
     else if (q.advanced) toast(`Objective: ${questLog.objective()}`);
 
     const done = missionLog.arriveAt(world.id);
     if (done.length) {
       player.bumpStat('deliveries', done.length);
+      player.addRep(world.id, 6 * done.length); // honest work earns standing
       awardXp(30 * done.length);
       const sum = done.reduce((a, m) => a + m.reward, 0);
       toast(`Delivered ${done.length} job(s) at ${world.name} — +${sum} cr`);

@@ -349,7 +349,7 @@ export class Market extends BasePanel {
     this.root.innerHTML = `<div class="vc-panel">
       <div class="vc-head"><div class="vc-title">◈ ${this.world.name.toUpperCase()} MARKET</div>
       <div class="vc-credits">${p.credits} cr</div></div>
-      <div class="vc-sub">Buy low here, sell high elsewhere. Hold ${p.cargoUsed()}/${p.cargoCap()}. [E]/[Esc] to leave.</div>
+      <div class="vc-sub">Buy low here, sell high elsewhere. Hold ${p.cargoUsed()}/${p.cargoCap()}. · Standing: <b style="color:#9effa0">${p.repTier(this.world.id)}</b> (${p.repOf(this.world.id) > 0 ? '+' : ''}${p.repOf(this.world.id)}). [E]/[Esc] to leave.</div>
       ${banner}
       <div class="vc-row" style="grid-template-columns:1fr auto auto;gap:10px;border-color:#2a4a2a">
         <div><div class="nm">Fuel <span class="vc-pips" style="color:#9effa0">${Math.round(p.fuel)}/${p.maxFuel}</span></div>
