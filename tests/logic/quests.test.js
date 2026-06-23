@@ -66,3 +66,44 @@ test('quest NPC appears at the giver world and at active talk steps', () => {
   log.onKill(); log.onKill(); log.onKill(); log.onArrive('the-maw');
   assert.equal(log.npcHere('vex', 'the-maw'), true);
 });
+
+function finishMawJob(log) {
+  log.talk('vex', 'neon-haven'); log.onArrive('dust-reach');
+  log.onKill(); log.onKill(); log.onKill(); log.onArrive('the-maw');
+  log.talk('vex', 'the-maw');
+}
+
+test('second storyline is gated behind The Maw Job', () => {
+  const log = fresh();
+  assert.equal(log.isAvailable('cold-trail'), false);   // locked until maw-job done
+  assert.equal(log.npcHere('mara', 'cryo'), false);
+  finishMawJob(log);
+  assert.equal(log.isDone('maw-job'), true);
+  assert.equal(log.isAvailable('cold-trail'), true);    // now unlocked
+  assert.equal(log.npcHere('mara', 'cryo'), true);      // Mara appears at Cryo
+});
+
+test('the Cold Trail arc runs end to end with a generic giver', () => {
+  const p = new Player(null);
+  const log = new QuestLog(p);
+  finishMawJob(log);
+  const before = p.credits;
+  const start = log.talk('mara', 'cryo');               // start + advance intro
+  assert.equal(start.advanced, true);
+  assert.equal(log.active.id, 'cold-trail');
+  log.onArrive('verdant');                              // travel step
+  log.onKill(); log.onKill(); log.onKill(); log.onKill(); // kill 4
+  log.onArrive('cryo');                                 // return
+  const r = log.talk('mara', 'cryo');                   // final
+  assert.equal(r.completed, true);
+  assert.equal(p.credits, before + questById('cold-trail').reward.credits);
+  assert.equal(log.isDone('cold-trail'), true);
+});
+
+test('giverAt reports the right NPC + name per world', () => {
+  const log = fresh();
+  assert.deepEqual(log.giverAt('neon-haven'), { npc: 'vex', name: 'Vex' });
+  assert.equal(log.giverAt('cryo'), null); // cold-trail still locked
+  finishMawJob(log);
+  assert.deepEqual(log.giverAt('cryo'), { npc: 'mara', name: 'Mara' });
+});

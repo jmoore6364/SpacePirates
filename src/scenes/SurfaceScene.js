@@ -82,8 +82,9 @@ export class SurfaceScene {
     this._addVendor('shipyard', 'Shipyard', new THREE.Vector3(34, 0, 14), 0x8effd0);
     this._addVendor('armory', 'Armory', new THREE.Vector3(-34, 0, 14), 0xff9b6e);
     // quest-giver NPC appears when there's a job to take or hand off here
-    if (questLog && questLog.npcHere('vex', world.id)) {
-      this._addVendor('quest', 'Vex', new THREE.Vector3(14, 0, 12), 0xffd24a);
+    this.questGiver = questLog ? questLog.giverAt(world.id) : null;
+    if (this.questGiver) {
+      this._addVendor('quest', this.questGiver.name, new THREE.Vector3(14, 0, 12), 0xffd24a);
     }
     // a named local you can chat with for a rumor / market tip
     this._addVendor('informant', 'Informant', new THREE.Vector3(-14, 0, -14), 0xc0a0ff);

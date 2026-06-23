@@ -24,9 +24,33 @@ export const QUESTS = [
         say: ["\"Clean work, Corsair. The Maw remembers its friends. We'll be in touch.\""] },
     ],
   },
+  {
+    id: 'cold-trail',
+    name: 'Cold Trail',
+    giver: 'Mara',
+    giverWorld: 'cryo',
+    requires: 'maw-job', // unlocks once you've proven yourself on The Maw Job
+    intro: [
+      "A frost-pale woman in a lab coat flags you down on the Cryo concourse.",
+      "\"You're the Corsair who ran for The Maw. I'm Mara — I defected from the labs here, and they want me silenced.\"",
+      "\"Help me bury the evidence and I'll make it very worth your while.\"",
+    ],
+    reward: { credits: 2600 },
+    steps: [
+      { type: 'talk', npc: 'mara', world: 'cryo', desc: 'Hear Mara out (Cryo Station)',
+        say: ["\"Take this data core to my contact on Verdant. Quietly.\""] },
+      { type: 'travel', world: 'verdant', desc: 'Deliver the data core to Verdant' },
+      { type: 'kill', count: 4, desc: 'Lose the corporate hunters — destroy 4' },
+      { type: 'travel', world: 'cryo', desc: 'Return to Mara at Cryo Station' },
+      { type: 'talk', npc: 'mara', world: 'cryo', final: true, desc: 'Report back to Mara',
+        say: ["\"It's done — they've nothing on me now. You're a rare kind of honest, Corsair. Thank you.\""] },
+    ],
+  },
 ];
 
 export const questById = (id) => QUESTS.find((q) => q.id === id);
+
+const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 export class QuestLog {
   constructor(player) {
@@ -39,7 +63,35 @@ export class QuestLog {
   get stepIndex() { return this.s.step; }
   currentStep() { const q = this.active; return q ? q.steps[this.s.step] : null; }
   isDone(id) { return this.s.done.includes(id); }
-  isAvailable(id) { return !this.s.active && !this.isDone(id); }
+  isAvailable(id) {
+    if (this.s.active || this.isDone(id)) return false;
+    const q = questById(id);
+    if (q && q.requires && !this.isDone(q.requires)) return false; // gated behind a prior quest
+    return true;
+  }
+
+  // The available quest offered by a giver standing at this world, if any.
+  availableQuestAt(worldId) {
+    return QUESTS.find((q) => this.isAvailable(q.id) && q.giverWorld === worldId) || null;
+  }
+
+  // Which quest NPC should appear at this world (an offer giver or a talk-step target).
+  giverAt(worldId) {
+    const avail = this.availableQuestAt(worldId);
+    if (avail) return { npc: avail.giver.toLowerCase(), name: avail.giver };
+    const st = this.currentStep();
+    if (st && st.type === 'talk' && st.world === worldId) return { npc: st.npc, name: titleCase(st.npc) };
+    return null;
+  }
+
+  // Dialogue lines for talking to `npcId` at `worldId` (offer intro or step lines).
+  dialogueFor(npcId, worldId) {
+    const avail = this.availableQuestAt(worldId);
+    if (avail && avail.giver.toLowerCase() === npcId) return [...avail.intro, ...(avail.steps[0].say || [])];
+    const st = this.currentStep();
+    if (st && st.type === 'talk' && st.npc === npcId && st.world === worldId) return st.say || ['"..."'];
+    return ['"Nothing for you right now, Corsair."'];
+  }
 
   objective() {
     const st = this.currentStep();
@@ -57,15 +109,16 @@ export class QuestLog {
 
   // Should a quest-giver NPC for `npcId` appear at `worldId` right now?
   npcHere(npcId, worldId) {
-    const q = questById('maw-job');
-    if (this.isAvailable('maw-job') && q.giverWorld === worldId && npcId === q.giver.toLowerCase()) return true;
+    const avail = this.availableQuestAt(worldId);
+    if (avail && avail.giver.toLowerCase() === npcId) return true;
     const st = this.currentStep();
     return !!(st && st.type === 'talk' && st.npc === npcId && st.world === worldId);
   }
 
-  // Talking: starts the quest if offered, then advances the current talk step.
+  // Talking: starts an offered quest if this is its giver, then advances a talk step.
   talk(npcId, worldId) {
-    if (this.isAvailable('maw-job') && npcId === 'vex' && worldId === 'neon-haven') this.start('maw-job');
+    const avail = this.availableQuestAt(worldId);
+    if (avail && avail.giver.toLowerCase() === npcId) this.start(avail.id);
     const st = this.currentStep();
     if (st && st.type === 'talk' && st.npc === npcId && st.world === worldId) return this._advance();
     return { advanced: false };

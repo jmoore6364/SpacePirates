@@ -17,7 +17,7 @@ import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
 import { MissionLog, generateOffers } from './game/Missions.js';
-import { QuestLog, questById } from './game/Quests.js';
+import { QuestLog } from './game/Quests.js';
 import { AudioManager } from './systems/Audio.js';
 import { tickMarket, commodityById, activeEvents } from './game/Market.js';
 import { fuelCost } from './game/Player.js';
@@ -284,31 +284,26 @@ function land(world) {
   });
 }
 
-function talkToVex(world) {
-  const quest = questById('maw-job');
-  const step = questLog.currentStep();
-  let lines;
-  if (questLog.isAvailable('maw-job') && world.id === 'neon-haven') {
-    lines = [...quest.intro, ...(quest.steps[0].say || [])];
-  } else if (step && step.type === 'talk' && step.npc === 'vex' && step.world === world.id) {
-    lines = step.say || ['"..."'];
-  } else {
-    lines = ['"Nothing for you right now, Corsair."'];
-  }
+function talkToGiver(world) {
+  const giver = surface.questGiver;
+  if (!giver) return;
+  const lines = questLog.dialogueFor(giver.npc, world.id);
   surface.inputLocked = true;
   exitLook();
   audio.blip();
-  dialogue.open('VEX', lines, () => {
-    const r = questLog.talk('vex', world.id);
-    if (r.completed) { audio.warp(); awardXp(120); toast(`Quest complete: ${r.quest.name} — +${r.reward.credits} cr`); }
-    else if (r.advanced) toast(`Objective: ${questLog.objective()}`);
+  dialogue.open(giver.name.toUpperCase(), lines, () => {
+    const r = questLog.talk(giver.npc, world.id);
+    if (r.completed) {
+      audio.warp(); awardXp(120); player.addRep(world.id, 15);
+      toast(`Quest complete: ${r.quest.name} — +${r.reward.credits} cr`);
+    } else if (r.advanced) toast(`Objective: ${questLog.objective()}`);
   });
   panel = dialogue;
 }
 
 function openInteract(world, kind) {
   tutorial.mark('interacted');
-  if (kind === 'quest') { talkToVex(world); return; }
+  if (kind === 'quest') { talkToGiver(world); return; }
   surface.inputLocked = true;
   exitLook();
   audio.blip();
