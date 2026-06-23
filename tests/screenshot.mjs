@@ -547,6 +547,29 @@ async function main() {
     if (onfoot.enemies !== 0) errors.push('on-foot: enforcer not eliminated by blaster');
     console.log('› screenshot → pass9-onfoot.png');
 
+    // on-foot mini-boss: an Enforcer Captain spawns, shows a boss bar, drops a big bounty
+    const cap = await page.evaluate(() => {
+      const g = window.__VC__.surface.ground;
+      g.enemies.forEach((e) => window.__VC__.surface.scene.remove(e.mesh)); g.enemies = []; g.captain = null;
+      g.spawnCaptain();
+      return { active: !!g.captain, hp: g.captain?.hp, boss: g.hudData().boss?.name };
+    });
+    if (!cap.active) errors.push('enforcer captain did not spawn');
+    if (cap.boss !== 'Enforcer Captain') errors.push('captain not reported to boss HUD');
+    await sleep(150);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass-captain.png') });
+    const capCred = await page.evaluate(() => window.__VC__.player.credits);
+    await page.evaluate(() => { const g = window.__VC__.surface.ground; if (g.captain) g._killEnemy(g.captain); });
+    const capOut = await page.evaluate(() => ({
+      captain: window.__VC__.surface.ground.captain,
+      credits: window.__VC__.player.credits,
+      ach: window.__VC__.player.hasAchievement('captain-down'),
+    }));
+    if (capOut.captain) errors.push('captain not cleared after kill');
+    if (capOut.credits <= capCred) errors.push('captain kill paid no bounty');
+    if (!capOut.ach) errors.push('Decapitation achievement did not unlock');
+    console.log(`› captain: hp=${cap.hp} → killed, bounty +${capOut.credits - capCred} cr, ach=${capOut.ach}`);
+
     // Pass 4: trader shop — walk to the trader, open, buy an upgrade
     await page.evaluate(() => {
       const s = window.__VC__.surface;

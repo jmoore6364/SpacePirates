@@ -13,6 +13,7 @@ export const ACHIEVEMENTS = [
   { id: 'magnate',       name: 'Magnate',       desc: 'Earn 50,000 credits.',            test: (s) => s.creditsEarned >= 50000 },
   { id: 'warlord-bane',  name: 'Warlord Bane',  desc: 'Destroy a pirate Warlord.',       test: (s) => (s.bosses || 0) >= 1 },
   { id: 'prospector',    name: 'Prospector',    desc: 'Mine 50 units of ore.',           test: (s) => (s.oreMined || 0) >= 50 },
+  { id: 'captain-down',  name: 'Decapitation',  desc: 'Down an Enforcer Captain.',        test: (s) => (s.captains || 0) >= 1 },
 ];
 
 export const achievementById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -22,6 +23,7 @@ export const STAT_LABELS = [
   ['kills', 'Ships destroyed'],
   ['bosses', 'Warlords downed'],
   ['enforcers', 'Enforcers downed'],
+  ['captains', 'Captains downed'],
   ['deliveries', 'Deliveries'],
   ['oreMined', 'Ore mined'],
   ['jumps', 'Jumps'],

@@ -47,6 +47,7 @@ const el = {
   reticle: document.getElementById('reticle'),
   bossBar: document.getElementById('boss-bar'),
   bossFill: document.querySelector('#boss-bar .bb-fill'),
+  bossLabel: document.querySelector('#boss-bar .bb-label'),
   loading: document.getElementById('loading'),
   fade: document.getElementById('fade'),
 };
@@ -241,6 +242,8 @@ function land(world) {
         case 'blaster': audio.laser(); renderer.addShake(0.06); tutorial.mark('fired'); break; // recoil kick
         case 'playerHurt': audio.hit(); renderer.addShake(0.4); break;
         case 'enforcerDown': audio.explosion(); renderer.addShake(0.5); player.bumpStat('enforcers'); awardXp(15); toast(`Enforcer down — +${e.bounty} cr`); break;
+        case 'captainSpawn': audio.warp(); renderer.addShake(0.5); toast(`⚠ ENFORCER CAPTAIN — a squad leader has joined the hunt!`); break;
+        case 'captainDown': audio.explosion(); audio.chime(); renderer.addShake(0.9); player.bumpStat('captains'); awardXp(120); toast(`★ Enforcer Captain down — +${e.bounty} cr`); break;
         case 'playerDown': audio.explosion(); renderer.addShake(1.0); player.bumpStat('deaths'); toast(`You were downed — patched up (−${e.penalty} cr)`); break;
         case 'bark': toast(`“${e.line}”`); break; // ambient civilian chatter
       }
@@ -578,7 +581,11 @@ function drawMinimap(s) {
 
   for (const a of s.ambient || []) { ctx.fillStyle = 'rgba(180,180,205,0.55)'; ctx.beginPath(); ctx.arc(px(a.npc.position.x), py(a.npc.position.z), 1.6, 0, TAU); ctx.fill(); }
   for (const it of s.interactables || []) { ctx.fillStyle = hex(it.color); ctx.beginPath(); ctx.arc(px(it.position.x), py(it.position.z), 3, 0, TAU); ctx.fill(); }
-  for (const e of (s.ground?.enemies || [])) { ctx.fillStyle = '#ff5b6e'; ctx.beginPath(); ctx.arc(px(e.mesh.position.x), py(e.mesh.position.z), 2.5, 0, TAU); ctx.fill(); }
+  for (const e of (s.ground?.enemies || [])) {
+    const cap = e.isBoss;
+    ctx.fillStyle = cap ? '#ffd24a' : '#ff5b6e';
+    ctx.beginPath(); ctx.arc(px(e.mesh.position.x), py(e.mesh.position.z), cap ? 4 : 2.5, 0, TAU); ctx.fill();
+  }
 
   // player arrow (forward = (sin h, cos h))
   const c = s.character, h = c.heading, fx = Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h);
@@ -605,10 +612,11 @@ function renderHud() {
   if (!h) { el.reticle.classList.remove('show'); el.bossBar.classList.remove('show'); return; }
   el.reticle.classList.toggle('show', !!h.onFoot);
 
-  // boss health bar (space Warlord fight)
-  const boss = (!h.onFoot && h.combat && h.combat.boss) ? h.combat.boss : null;
+  // boss health bar — space Warlord or on-foot Enforcer Captain
+  const boss = (!h.onFoot && h.combat && h.combat.boss) ? h.combat.boss
+    : (h.onFoot && h.ground && h.ground.boss ? h.ground.boss : null);
   el.bossBar.classList.toggle('show', !!boss);
-  if (boss) el.bossFill.style.width = `${Math.round((100 * boss.hp) / boss.maxHp)}%`;
+  if (boss) { el.bossLabel.textContent = boss.name; el.bossFill.style.width = `${Math.round((100 * boss.hp) / boss.maxHp)}%`; }
 
   if (h.onFoot) {
     el.throttle.textContent = `◈ ${h.world.name}`;

@@ -14,9 +14,11 @@ const HP_REGEN = 6; // per second after a lull
 // On-foot enforcer archetypes — distinct HP, pace, range and threat (mirrors the
 // space enemy roster). grunt is the original baseline.
 const ENFORCER_TYPES = {
-  grunt:  { hp: 40, speed: 11, ideal: 16, fireCd: 1.6, dmg: 8,  bounty: 50,  scale: 1.0,  color: 0xff3b50 },
-  heavy:  { hp: 95, speed: 7,  ideal: 13, fireCd: 1.9, dmg: 16, bounty: 110, scale: 1.35, color: 0xff7a3c },
-  sniper: { hp: 28, speed: 9,  ideal: 30, fireCd: 2.6, dmg: 22, bounty: 90,  scale: 0.9,  color: 0xc06bff },
+  grunt:   { hp: 40,  speed: 11, ideal: 16, fireCd: 1.6, dmg: 8,  bounty: 50,  scale: 1.0,  color: 0xff3b50 },
+  heavy:   { hp: 95,  speed: 7,  ideal: 13, fireCd: 1.9, dmg: 16, bounty: 110, scale: 1.35, color: 0xff7a3c },
+  sniper:  { hp: 28,  speed: 9,  ideal: 30, fireCd: 2.6, dmg: 22, bounty: 90,  scale: 0.9,  color: 0xc06bff },
+  // on-foot mini-boss: an Enforcer Captain (the ground answer to the Warlord)
+  captain: { hp: 260, speed: 9,  ideal: 18, fireCd: 0.85, dmg: 14, bounty: 600, scale: 1.7, color: 0xffd24a, volley: 3, boss: true },
 };
 
 export class GroundCombat {
@@ -36,6 +38,7 @@ export class GroundCombat {
     this.regen = armor.regen || HP_REGEN;
     this.dr = armor.dr || 0; // fraction of incoming damage soaked by armor
     this.enemies = [];
+    this.captain = null; // active Enforcer Captain mini-boss, or null
     this.bolts = [];
     this._fireCd = 0;
     this._hitGrace = 0;
@@ -87,7 +90,17 @@ export class GroundCombat {
       }
     });
     this.scene.add(mesh);
-    this.enemies.push({ mesh, type, hp: type.hp, cd: 1 + Math.random() * 1.5, mats, flash: 0 });
+    const e = { mesh, type, hp: type.hp, maxHp: type.hp, cd: 1 + Math.random() * 1.5, mats, flash: 0, isBoss: !!type.boss };
+    this.enemies.push(e);
+    if (type.boss) this.captain = e;
+    return e;
+  }
+
+  spawnCaptain() {
+    const a = Math.random() * Math.PI * 2;
+    const r = 42;
+    this.spawnEnforcer(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r), 'captain');
+    this.onEvent({ type: 'captainSpawn' });
   }
 
   update(dt) {
@@ -205,7 +218,12 @@ export class GroundCombat {
         const pChest = this.groundY(p.x, p.z) + CHEST;
         const eChest = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
         const dir = this._tmp2.copy(p).setY(pChest).sub(this._tmp.copy(e.mesh.position).setY(eChest)).normalize();
-        this._spawnBolt(e.mesh.position.clone().setY(eChest).addScaledVector(dir, 1.4), dir.clone(), true, e.type.dmg);
+        const muzzle = e.mesh.position.clone().setY(eChest);
+        const shots = e.type.volley || 1;
+        for (let k = 0; k < shots; k++) {
+          const d = shots > 1 ? scatter(dir, 0.09) : dir.clone();
+          this._spawnBolt(muzzle.clone().addScaledVector(d, 1.4), d, true, e.type.dmg);
+        }
       }
     }
   }
@@ -253,13 +271,14 @@ export class GroundCombat {
 
   _killEnemy(e) {
     const cy = this.groundY(e.mesh.position.x, e.mesh.position.z) + 1.6;
-    this._spawnFx('kill', this._tmp.set(e.mesh.position.x, cy, e.mesh.position.z).clone(), 0xff5b6e);
+    this._spawnFx('kill', this._tmp.set(e.mesh.position.x, cy, e.mesh.position.z).clone(), e.isBoss ? 0xffd24a : 0xff5b6e);
     this.scene.remove(e.mesh);
     e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.enemies = this.enemies.filter((x) => x !== e);
     const bounty = e.type?.bounty || 50;
     player.addCredits(bounty);
-    this.onEvent({ type: 'enforcerDown', bounty });
+    if (e.isBoss) { this.captain = null; this.onEvent({ type: 'captainDown', bounty }); }
+    else this.onEvent({ type: 'enforcerDown', bounty });
   }
 
   _damagePlayer(dmg) {
@@ -276,6 +295,7 @@ export class GroundCombat {
     this.character.position.copy(this.spawnPoint);
     for (const e of this.enemies) this.scene.remove(e.mesh);
     this.enemies = [];
+    this.captain = null;
     this.onEvent({ type: 'playerDown', penalty });
   }
 
@@ -325,7 +345,10 @@ export class GroundCombat {
   }
 
   hudData() {
-    return { hp: this.hp, maxHp: this.maxHp, enemies: this.enemies.length };
+    return {
+      hp: this.hp, maxHp: this.maxHp, enemies: this.enemies.length,
+      boss: this.captain ? { name: 'Enforcer Captain', hp: Math.max(0, this.captain.hp), maxHp: this.captain.maxHp } : null,
+    };
   }
 }
 
@@ -390,6 +413,10 @@ function buildEnforcer(type = ENFORCER_TYPES.grunt) {
   } else if (type.ideal >= 25) {
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.4, 6), glow);
     barrel.rotation.x = Math.PI / 2; barrel.position.set(0.5, 1.7, 0.9); g.add(barrel);
+  }
+  if (type.boss) { // captain crest
+    const crest = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 4), glow);
+    crest.position.y = 3.35; g.add(crest);
   }
   g.scale.setScalar(type.scale);
   return g;

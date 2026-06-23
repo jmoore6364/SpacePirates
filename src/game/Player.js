@@ -35,7 +35,7 @@ const DEFAULTS = () => ({
   sidearmsOwned: ['blaster'],
   armor: 'flightsuit',          // equipped on-foot armor
   armorsOwned: ['flightsuit'],
-  runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0, bosses: 0, oreMined: 0 },
+  runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0, bosses: 0, captains: 0, oreMined: 0 },
   achievements: [],             // unlocked achievement ids
 });
 

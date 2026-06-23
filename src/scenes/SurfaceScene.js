@@ -105,6 +105,7 @@ export class SurfaceScene {
       onEvent: (e) => { if (this.onEvent) this.onEvent(e); },
     });
     if (threat > 0) this.ground.spawnWave(Math.min(threat + 1, 6));
+    if (threat >= 4) this.ground.spawnCaptain(); // an Enforcer Captain leads heavy heat
 
     this.cam = null;
     this._enginePulse = 0;
