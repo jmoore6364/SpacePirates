@@ -155,6 +155,15 @@ async function main() {
     console.log(`› controls: rebind fire→${rebind.got}, reset→${rebind.reset}`);
     await page.evaluate(() => window.__VC__.controlsPanel.close());
 
+    // journal: the quest log lists available storylines (and active once started)
+    await page.evaluate(() => window.__VC__.questPanel.open(window.__VC__.questLog));
+    await page.waitForFunction(() => window.__VC__.questPanel.isOpen === true, { timeout: 5000 }).catch(() => {});
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass-journal.png') });
+    const journal = await page.evaluate(() => document.querySelector('#journal .jr-panel')?.textContent || '');
+    if (!journal.includes('The Maw Job')) errors.push('journal did not list a storyline');
+    console.log(`› journal: lists The Maw Job = ${journal.includes('The Maw Job')}`);
+    await page.evaluate(() => window.__VC__.questPanel.close());
+
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => window.__VC__.menu.isOpen === false, { timeout: 5000 }).catch(() => {});
     console.log(`› pause menu opened+resumed: ${paused}`);

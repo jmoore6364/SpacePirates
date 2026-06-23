@@ -12,6 +12,7 @@ import { SavesPanel } from './ui/SavesPanel.js';
 import { StatsPanel } from './ui/StatsPanel.js';
 import { Tutorial } from './ui/Tutorial.js';
 import { ControlsPanel } from './ui/ControlsPanel.js';
+import { QuestPanel } from './ui/QuestPanel.js';
 import { TouchControls } from './ui/TouchControls.js';
 import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
@@ -135,12 +136,14 @@ const savesPanel = new SavesPanel({
 
 const statsPanel = new StatsPanel({});
 const controlsPanel = new ControlsPanel({});
+const questPanel = new QuestPanel({});
 const menu = new MenuScreen({
   onResume: () => setPaused(false),
   onSave: () => { player.save(); saveSettings(); toast('Quick-saved.'); },
   onSaves: () => savesPanel.open(player.activeSlot),
   onStats: () => statsPanel.open(player),
   onControls: () => controlsPanel.open(input),
+  onJournal: () => questPanel.open(questLog),
   onQuit: () => { player.save(); saveSettings(); window.location.reload(); },
   onChange: applySetting,
 });
@@ -384,6 +387,7 @@ window.addEventListener('keydown', (e) => {
   if (savesPanel.isOpen) { if (e.code === 'Escape') savesPanel.close(); return; }
   if (statsPanel.isOpen) { if (e.code === 'Escape') statsPanel.close(); return; }
   if (controlsPanel.isOpen) { if (e.code === 'Escape' && !controlsPanel.capturing) controlsPanel.close(); return; }
+  if (questPanel.isOpen) { if (e.code === 'Escape') questPanel.close(); return; }
   // pause menu owns input while open
   if (menu.isOpen) { if (e.code === 'Escape') setPaused(false); return; }
 
@@ -757,7 +761,7 @@ requestAnimationFrame(() => {
 
 window.__VC__ = {
   renderer, scenes, loop, input, starMap, audio, titleScreen, menu, savesPanel, touch,
-  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel, tutorial, controlsPanel,
+  player, missionLog, questLog, shop, missionBoard, market, dialogue, skills, shipyard, armory, statsPanel, tutorial, controlsPanel, questPanel,
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },

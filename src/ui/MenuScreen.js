@@ -2,12 +2,13 @@
 // Save, and Quit to title. Emits changes via onChange(key, value); the host applies
 // + persists them. See issue #7.
 export class MenuScreen {
-  constructor({ onResume, onSave, onSaves, onStats, onControls, onQuit, onChange } = {}) {
+  constructor({ onResume, onSave, onSaves, onStats, onControls, onJournal, onQuit, onChange } = {}) {
     this.onResume = onResume || (() => {});
     this.onSave = onSave || (() => {});
     this.onSaves = onSaves || (() => {});
     this.onStats = onStats || (() => {});
     this.onControls = onControls || (() => {});
+    this.onJournal = onJournal || (() => {});
     this.onQuit = onQuit || (() => {});
     this.onChange = onChange || (() => {});
     this.isOpen = false;
@@ -38,6 +39,7 @@ export class MenuScreen {
           <button class="mn-btn primary" data-act="resume">RESUME</button>
           <button class="mn-btn" data-act="save">QUICK SAVE</button>
           <button class="mn-btn" data-act="saves">MANAGE SAVES</button>
+          <button class="mn-btn" data-act="journal">JOURNAL</button>
           <button class="mn-btn" data-act="stats">RECORDS</button>
           <button class="mn-btn" data-act="controls">CONTROLS</button>
           <button class="mn-btn" data-act="quit">QUIT TO TITLE</button>
@@ -64,6 +66,7 @@ export class MenuScreen {
     $('[data-act="resume"]').onclick = () => this.onResume();
     $('[data-act="save"]').onclick = () => this.onSave();
     $('[data-act="saves"]').onclick = () => this.onSaves();
+    $('[data-act="journal"]').onclick = () => this.onJournal();
     $('[data-act="stats"]').onclick = () => this.onStats();
     $('[data-act="controls"]').onclick = () => this.onControls();
     $('[data-act="quit"]').onclick = () => this.onQuit();
