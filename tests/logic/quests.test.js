@@ -107,3 +107,37 @@ test('giverAt reports the right NPC + name per world', () => {
   finishMawJob(log);
   assert.deepEqual(log.giverAt('cryo'), { npc: 'mara', name: 'Mara' });
 });
+
+function finishColdTrail(log) {
+  log.talk('mara', 'cryo'); log.onArrive('verdant');
+  log.onKill(); log.onKill(); log.onKill(); log.onKill();
+  log.onArrive('cryo'); log.talk('mara', 'cryo');
+}
+
+test('mine step accumulates ore and advances at the target', () => {
+  const log = fresh();
+  finishMawJob(log); finishColdTrail(log);
+  assert.equal(log.isAvailable('deep-cut'), true);
+  log.talk('brak', 'the-maw');                 // start + advance to mine step
+  assert.equal(log.currentStep().type, 'mine');
+  assert.equal(log.onMine(10).progress, true); // partial
+  assert.equal(log.objective().includes('10/15'), true);
+  const r = log.onMine(10);                     // crosses 15
+  assert.equal(r.advanced, true);
+  assert.equal(log.currentStep().type, 'travel');
+});
+
+test('Deep Cut (third arc) runs end to end via mine + travel', () => {
+  const p = new Player(null);
+  const log = new QuestLog(p);
+  finishMawJob(log); finishColdTrail(log);
+  const before = p.credits;
+  log.talk('brak', 'the-maw');     // -> mine 15
+  log.onMine(15);                  // -> travel neon-haven
+  log.onArrive('neon-haven');      // -> travel the-maw
+  log.onArrive('the-maw');         // -> final talk
+  const r = log.talk('brak', 'the-maw');
+  assert.equal(r.completed, true);
+  assert.equal(p.credits, before + questById('deep-cut').reward.credits);
+  assert.equal(log.isDone('deep-cut'), true);
+});

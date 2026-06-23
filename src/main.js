@@ -185,8 +185,12 @@ function enterSpace(worldId) {
       case 'destroyed': audio.explosion(); player.bumpStat('deaths'); toast(`SHIP DESTROYED — emergency repair at Neon Haven (−${e.penalty} cr)`); break;
       case 'mined':
         audio.blip();
-        if (e.ore > 0) { player.bumpStat('oreMined', e.ore); toast(`⛏ Mined ${e.ore} Raw Ore${e.spilled ? ` (${e.spilled} lost — hold full)` : ''}`); }
-        else if (e.spilled) toast('Cargo hold full — ore lost. Sell at a Market.');
+        if (e.ore > 0) {
+          player.bumpStat('oreMined', e.ore);
+          const qm = questLog.onMine(e.ore);
+          if (qm.completed) { awardXp(120); toast(`Quest complete: ${qm.quest.name} — +${qm.reward.credits} cr`); }
+          else toast(`⛏ Mined ${e.ore} Raw Ore${e.spilled ? ` (${e.spilled} lost — hold full)` : ''}`);
+        } else if (e.spilled) toast('Cargo hold full — ore lost. Sell at a Market.');
         break;
       case 'bossSpawn': audio.warp(); renderer.addShake(0.6); toast(`⚠ WARLORD INBOUND — a pirate capital ship is hunting you!`); break;
       case 'bossKill':

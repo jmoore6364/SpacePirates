@@ -1,7 +1,8 @@
 // Renderer-agnostic quest framework + the campaign. A quest is an ordered list of
 // steps; the QuestLog tracks the active quest's progress and persists it on the
 // player. Step types: talk (to a named NPC at a world), travel (land at a world),
-// kill (destroy N raiders). Completion pays the reward. See issue #4.
+// kill (destroy N raiders), mine (mine N units of ore). Completion pays the
+// reward. See issue #4.
 
 export const QUESTS = [
   {
@@ -46,6 +47,28 @@ export const QUESTS = [
         say: ["\"It's done — they've nothing on me now. You're a rare kind of honest, Corsair. Thank you.\""] },
     ],
   },
+  {
+    id: 'deep-cut',
+    name: 'Deep Cut',
+    giver: 'Brak',
+    giverWorld: 'the-maw',
+    requires: 'cold-trail',
+    intro: [
+      "Brak, a slab of a man with a mining rig for an arm, blocks your path on The Maw docks.",
+      "\"You want in with the crews here? Prove you can pull your weight — literally.\"",
+      "\"Cut ore from the belt, fence it on Neon Haven, and bring the cut back to me.\"",
+    ],
+    reward: { credits: 3500 },
+    steps: [
+      { type: 'talk', npc: 'brak', world: 'the-maw', desc: 'Take the job from Brak (The Maw)',
+        say: ["\"Belt's right outside. Shoot rock till your hold's heavy, then move it.\""] },
+      { type: 'mine', count: 15, desc: 'Mine 15 ore from the belt' },
+      { type: 'travel', world: 'neon-haven', desc: 'Fence the ore on Neon Haven' },
+      { type: 'travel', world: 'the-maw', desc: 'Bring Brak his cut at The Maw' },
+      { type: 'talk', npc: 'brak', world: 'the-maw', final: true, desc: 'Settle up with Brak',
+        say: ["\"Hah! Knew you had it in you. The crews'll know your name now, Corsair.\""] },
+    ],
+  },
 ];
 
 export const questById = (id) => QUESTS.find((q) => q.id === id);
@@ -55,7 +78,7 @@ const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 export class QuestLog {
   constructor(player) {
     this.player = player;
-    if (!player.questState) player.questState = { active: null, step: 0, kill: 0, done: [] };
+    if (!player.questState) player.questState = { active: null, step: 0, kill: 0, mine: 0, done: [] };
     this.s = player.questState;
   }
 
@@ -97,12 +120,13 @@ export class QuestLog {
     const st = this.currentStep();
     if (!st) return null;
     if (st.type === 'kill') return `${this.active.name}: ${st.desc} (${this.s.kill}/${st.count})`;
+    if (st.type === 'mine') return `${this.active.name}: ${st.desc} (${this.s.mine || 0}/${st.count})`;
     return `${this.active.name}: ${st.desc}`;
   }
 
   start(id) {
     if (this.s.active || this.isDone(id) || !questById(id)) return false;
-    this.s.active = id; this.s.step = 0; this.s.kill = 0;
+    this.s.active = id; this.s.step = 0; this.s.kill = 0; this.s.mine = 0;
     this.player.save();
     return true;
   }
@@ -135,6 +159,15 @@ export class QuestLog {
     if (!st || st.type !== 'kill') return { advanced: false };
     this.s.kill += 1;
     if (this.s.kill >= st.count) { this.s.kill = 0; return this._advance(); }
+    this.player.save();
+    return { advanced: true, progress: true };
+  }
+
+  onMine(amount = 1) {
+    const st = this.currentStep();
+    if (!st || st.type !== 'mine') return { advanced: false };
+    this.s.mine = (this.s.mine || 0) + amount;
+    if (this.s.mine >= st.count) { this.s.mine = 0; return this._advance(); }
     this.player.save();
     return { advanced: true, progress: true };
   }
