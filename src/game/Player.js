@@ -39,6 +39,7 @@ const DEFAULTS = () => ({
   runStats: { kills: 0, enforcers: 0, creditsEarned: 0, jumps: 0, deliveries: 0, landings: 0, deaths: 0, bosses: 0, captains: 0, oreMined: 0 },
   achievements: [],             // unlocked achievement ids
   rep: {},                      // per-world faction reputation (worldId → -100..100)
+  peakCredits: 500,             // richest you've ever been (career record)
 });
 
 // Fuel a fast-travel jump costs, by travel distance (manual flight is free).
@@ -72,6 +73,7 @@ export class Player {
 
   // Plain-object snapshot of all persisted state (used by SaveSlots).
   serialize() {
+    if (this.credits > (this.peakCredits || 0)) this.peakCredits = this.credits; // track career peak
     return {
       credits: this.credits, upgrades: this.upgrades, completed: this.completed,
       cargo: this.cargo, questState: this.questState,
@@ -83,8 +85,19 @@ export class Player {
       sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
       armor: this.armor, armorsOwned: this.armorsOwned,
       runStats: this.runStats, achievements: this.achievements,
-      rep: this.rep,
+      rep: this.rep, peakCredits: this.peakCredits,
     };
+  }
+
+  // A single career score rolling up the headline stats (for Records / high-score).
+  careerScore() {
+    const s = this.runStats || {};
+    return Math.round(
+      (s.kills || 0) * 10 + (s.enforcers || 0) * 12 +
+      (s.bosses || 0) * 250 + (s.captains || 0) * 150 +
+      (s.deliveries || 0) * 25 + (s.oreMined || 0) * 3 +
+      (s.creditsEarned || 0) / 10,
+    );
   }
 
   applyState(obj) { Object.assign(this, DEFAULTS(), obj); }

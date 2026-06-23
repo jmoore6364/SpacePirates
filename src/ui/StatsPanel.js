@@ -1,6 +1,7 @@
 // Records overlay: lifetime run stats + achievement grid (locked/unlocked).
 // Opened from the pause menu; sits above it (like the saves manager). See issue #12.
 import { ACHIEVEMENTS, STAT_LABELS } from '../game/Achievements.js';
+import { WORLDS } from '../world/Worlds.js';
 
 export class StatsPanel {
   constructor({ onClose } = {}) {
@@ -25,6 +26,13 @@ export class StatsPanel {
     const statRows = STAT_LABELS.map(([key, label]) =>
       `<div class="st-row"><span class="st-lbl">${label}</span><span class="st-val">${fmt(s[key])}</span></div>`).join('');
 
+    const repTierColor = { Hostile: '#ff5b6e', Disliked: '#ff8a6e', Neutral: '#9fe7ff', Friendly: '#9effa0', Allied: '#ffd24a' };
+    const standings = WORLDS.map((w) => {
+      const tier = p.repTier(w.id); const r = p.repOf(w.id);
+      return `<div class="st-row"><span class="st-lbl">${w.name}</span>
+        <span class="st-val" style="color:${repTierColor[tier]}">${tier} (${r > 0 ? '+' : ''}${r})</span></div>`;
+    }).join('');
+
     const unlocked = p.achievements.length;
     const cards = ACHIEVEMENTS.map((a) => {
       const got = p.hasAchievement(a.id);
@@ -37,7 +45,13 @@ export class StatsPanel {
     this.root.innerHTML = `<div class="st-panel">
       <div class="st-title">RECORDS</div>
       <div class="st-sub">Lifetime stats · ${unlocked}/${ACHIEVEMENTS.length} achievements. [Esc] / BACK to return.</div>
+      <div class="st-career">
+        <div class="st-score"><div class="st-score-n">${fmt(p.careerScore())}</div><div class="st-score-l">CAREER SCORE</div></div>
+        <div class="st-score"><div class="st-score-n">${fmt(p.peakCredits)} cr</div><div class="st-score-l">PEAK CREDITS</div></div>
+      </div>
       <div class="st-grid-stats">${statRows}</div>
+      <div class="st-sec">STANDING</div>
+      <div class="st-grid-stats">${standings}</div>
       <div class="st-sec">ACHIEVEMENTS</div>
       <div class="st-grid-ach">${cards}</div>
       <button class="st-btn back" data-back>BACK</button>
@@ -61,6 +75,11 @@ function injectStyles() {
       text-shadow: 0 0 12px rgba(255,93,177,0.6); margin-bottom: 6px; }
     #stats .st-sub { font-size: 12px; opacity: 0.6; margin-bottom: 14px; text-align: center; }
     #stats .st-sec { font-size: 11px; letter-spacing: 3px; opacity: 0.5; margin: 16px 0 10px; }
+    #stats .st-career { display: flex; gap: 12px; margin-bottom: 14px; }
+    #stats .st-score { flex: 1; text-align: center; padding: 10px; border: 1px solid #2d4a78;
+      border-radius: 8px; background: rgba(20,40,72,0.3); }
+    #stats .st-score-n { font-size: 22px; color: #ffe6a0; text-shadow: 0 0 10px rgba(255,210,120,0.4); }
+    #stats .st-score-l { font-size: 10px; letter-spacing: 2px; opacity: 0.6; margin-top: 2px; }
     #stats .st-grid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
     #stats .st-row { display: flex; justify-content: space-between; padding: 6px 10px;
       border-bottom: 1px solid #16243c; font-size: 13px; }
