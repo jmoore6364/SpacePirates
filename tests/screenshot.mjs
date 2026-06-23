@@ -374,6 +374,17 @@ async function main() {
     }));
     if (!wingOut.spawned) errors.push('wingman did not spawn after hiring');
     console.log(`› wingman: hired=${wing.hired}, spawned=${wingOut.spawned}, friendly bolts in flight=${wingOut.friendlyBolts}`);
+
+    // faction ambush: a hostile port scrambles a fighter pack on arrival
+    const amb = await page.evaluate(() => {
+      const s = window.__VC__.space; const c = s.combat;
+      c.enemies.forEach((e) => s.scene.remove(e.mesh)); c.enemies = []; c.boss = null;
+      c.ambush(3);
+      return c.enemies.length;
+    });
+    if (amb < 3) errors.push('faction ambush did not scramble fighters');
+    console.log(`› ambush: scrambled ${amb} fighters`);
+    await page.evaluate(() => { const c = window.__VC__.space.combat; c.enemies.forEach((e) => window.__VC__.space.scene.remove(e.mesh)); c.enemies = []; });
     await page.evaluate(() => window.__VC__.space.travelTo('neon-haven'));
 
     // #8 XP/skills: the kill granted XP; open the skill sheet (K) and spend a point

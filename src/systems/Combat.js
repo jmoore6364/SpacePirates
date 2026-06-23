@@ -290,6 +290,15 @@ export class Combat {
     return e;
   }
 
+  // Scramble a pack of fighters around the ship (hostile-port arrival ambush).
+  ambush(count = 3) {
+    const ahead = FWD.clone().applyQuaternion(this.ship.quaternion).multiplyScalar(200);
+    for (let i = 0; i < count; i++) {
+      const jitter = new THREE.Vector3((Math.random() - 0.5) * 280, (Math.random() - 0.5) * 160, (Math.random() - 0.5) * 280);
+      this._spawnEnemy(this.ship.position.clone().add(ahead).add(jitter), this._pickType());
+    }
+  }
+
   _spawnBoss() {
     const ahead = FWD.clone().applyQuaternion(this.ship.quaternion).multiplyScalar(320);
     const pos = this.ship.position.clone().add(ahead);

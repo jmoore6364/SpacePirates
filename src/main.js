@@ -216,6 +216,7 @@ const starMap = new StarMap({
     scenes.mode = Mode.SPACE;
     audio.warp();
     toast(`Warping to ${w.name}… (−${cost} fuel)`);
+    if (player.repOf(worldId) <= -20) setTimeout(() => maybeAmbush(worldId), 50);
   },
   // ✕ / backdrop tap closes the map (touch has no [M]/[Esc]) — return to flight
   onClose: () => { if (space) space.inputLocked = false; scenes.mode = Mode.SPACE; },
@@ -327,8 +328,20 @@ function takeoff(world) {
   tutorial.mark('tookOff');
   transition(() => {
     enterSpace(world.id);
-    toast(`Lifting off from ${world.name}.`);
+    if (!maybeAmbush(world.id)) toast(`Lifting off from ${world.name}.`);
   });
+}
+
+// Hostile ports scramble fighters when you arrive/depart. Returns true if it fired.
+function maybeAmbush(worldId) {
+  const rep = player.repOf(worldId);
+  if (rep > -20 || !space || !space.combat) return false;
+  const n = 2 + Math.floor(-rep / 30);
+  space.combat.ambush(n);
+  const w = WORLDS.find((x) => x.id === worldId);
+  audio.warp();
+  toast(`⚠ Ambush! ${w ? w.name : 'The locals'} scrambled ${n} fighters after you.`);
+  return true;
 }
 
 // Flavor + a useful market tip for the named Informant NPC.
