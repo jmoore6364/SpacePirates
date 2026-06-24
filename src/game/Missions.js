@@ -19,7 +19,9 @@ export function generateOffers(fromWorldId, count = 3) {
     const to = others[(k * 2 + 1) % others.length];
     const cargo = CARGO[(k + fromWorldId.length) % CARGO.length];
     const dist = Math.round(distanceBetween(fromWorldId, to.id) / 10);
-    const reward = 150 + dist * 4 + k * 40;
+    const illegal = cargo === 'contraband' || cargo === 'spice crates';
+    const units = 2 + (k % 4); // hold space the cargo occupies
+    const reward = 150 + dist * 4 + k * 40 + (illegal ? 120 : 0); // contraband pays a premium
     offers.push({
       id: nextId(),
       type: 'delivery',
@@ -27,6 +29,8 @@ export function generateOffers(fromWorldId, count = 3) {
       to: to.id,
       toName: to.name,
       cargo,
+      units,
+      illegal,
       reward,
       title: `Deliver ${cargo} to ${to.name}`,
     });
@@ -69,9 +73,25 @@ export class MissionLog {
   accept(mission) {
     if (this.active.length >= 4) return { ok: false, reason: 'Mission log full (4 max).' };
     if (this.has(mission.id)) return { ok: false, reason: 'Already accepted.' };
+    if ((mission.units || 0) > this.player.cargoFree()) return { ok: false, reason: 'Not enough cargo space.' };
     this.active.push(mission);
     this.player.save();
     return { ok: true };
+  }
+
+  // Customs scan on landing: illegal cargo bound elsewhere can be seized at a
+  // secure port. Higher world security raises the odds; good standing lowers them.
+  // Returns the confiscated missions (host applies the fine/rep hit).
+  runCustoms(worldId, security = 0, rep = 0, rng = Math.random) {
+    if (security <= 0) return [];
+    const chance = security * Math.max(0.15, 1 - Math.max(0, rep) / 150);
+    const caught = this.active.filter((m) =>
+      m.type === 'delivery' && m.illegal && m.to !== worldId && rng() < chance);
+    if (caught.length) {
+      this.player.missionsActive = this.active.filter((m) => !caught.includes(m));
+      this.player.save();
+    }
+    return caught;
   }
 
   // Call on arrival at a world; completes & pays any deliveries bound here.

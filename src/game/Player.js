@@ -266,7 +266,11 @@ export class Player {
 
   // --- cargo hold ---
   cargoCap() { return this.stats().cargo; }
-  cargoUsed() { return Object.values(this.cargo).reduce((a, q) => a + q, 0); }
+  cargoUsed() {
+    const goods = Object.values(this.cargo).reduce((a, q) => a + q, 0);
+    const missionUnits = (this.missionsActive || []).reduce((a, m) => a + (m.type === 'delivery' ? (m.units || 0) : 0), 0);
+    return goods + missionUnits;
+  }
   cargoFree() { return Math.max(0, this.cargoCap() - this.cargoUsed()); }
   cargoQty(id) { return this.cargo[id] || 0; }
 

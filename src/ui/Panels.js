@@ -138,7 +138,7 @@ export class MissionBoard extends BasePanel {
   render() {
     const sub = (m) => m.type === 'bounty'
       ? `Bounty hunt · progress ${m.progress || 0}/${m.target}`
-      : `Cargo: ${m.cargo} · deliver on arrival`;
+      : `Cargo: ${m.cargo} · ${m.units || 0}u hold${m.illegal ? ' · <span style="color:#ff9bb0">ILLEGAL</span>' : ''} · deliver on arrival`;
 
     const active = this.log.active.map((m) =>
       `<div class="vc-row"><div><div class="nm">${m.title}</div>
@@ -149,18 +149,19 @@ export class MissionBoard extends BasePanel {
     const offers = this.offers.map((m) => {
       const taken = this.log.has(m.id);
       const full = this.log.active.length >= 4;
-      const disabled = taken || full;
+      const noRoom = m.type === 'delivery' && (m.units || 0) > this.player.cargoFree();
+      const disabled = taken || full || noRoom;
+      const label = taken ? 'TAKEN' : noRoom ? 'NO HOLD' : 'ACCEPT';
       return `<div class="vc-row"><div><div class="nm">${m.title}</div>
         <div class="ds">${sub(m)}</div></div>
         <div class="vc-credits">${m.reward} cr</div>
-        <button class="vc-btn" data-take="${m.id}" ${disabled ? 'disabled' : ''}>
-          ${taken ? 'TAKEN' : 'ACCEPT'}</button></div>`;
+        <button class="vc-btn" data-take="${m.id}" ${disabled ? 'disabled' : ''}>${label}</button></div>`;
     }).join('');
 
     this.root.innerHTML = `<div class="vc-panel">
       <div class="vc-head"><div class="vc-title">◈ MISSION BOARD</div>
       <div class="vc-credits">${this.player.credits} cr</div></div>
-      <div class="vc-sub">Accept delivery jobs; they pay out when you land at the destination. [E]/[Esc] to leave.</div>
+      <div class="vc-sub">Delivery jobs pay on arrival and occupy cargo. Illegal cargo risks customs at secure ports. Hold ${this.player.cargoUsed()}/${this.player.cargoCap()}. [E]/[Esc] to leave.</div>
       <div class="vc-sub" style="opacity:.8">ACTIVE</div>${active}
       <div class="vc-sub" style="opacity:.8;margin-top:10px">AVAILABLE</div>${offers}
     </div>`;

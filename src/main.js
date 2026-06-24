@@ -274,6 +274,16 @@ function land(world) {
     if (q.completed) { awardXp(120); player.addRep(world.id, 15); toast(`Quest complete: ${q.quest.name} — +${q.reward.credits} cr`); }
     else if (q.advanced) toast(`Objective: ${questLog.objective()}`);
 
+    // customs scan: illegal cargo bound elsewhere can be seized at a secure port
+    const seized = missionLog.runCustoms(world.id, world.security || 0, player.repOf(world.id));
+    if (seized.length) {
+      const fine = seized.length * 250;
+      player.addCredits(-fine);
+      player.addRep(world.id, -12);
+      audio.hit(); renderer.addShake(0.4);
+      toast(`⚠ Customs seized your contraband — fined ${fine} cr and a black mark.`);
+    }
+
     const done = missionLog.arriveAt(world.id);
     if (done.length) {
       player.bumpStat('deliveries', done.length);
