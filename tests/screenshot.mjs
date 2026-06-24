@@ -637,6 +637,12 @@ async function main() {
     await page.keyboard.press('e'); // close
     await page.waitForFunction(() => window.__VC__.missionBoard.isOpen === false, { timeout: 6000 }).catch(() => {});
 
+    // mission guidance: the accepted delivery shows in the HUD objectives readout
+    await sleep(250); // let the HUD redraw tick
+    const guide = await page.evaluate(() => document.getElementById('hud-missions').textContent || '');
+    if (!guide.includes('→')) errors.push('mission guidance not shown in HUD');
+    console.log(`› mission guidance: "${guide.trim().slice(0, 60)}"`);
+
     // Trade: walk to the Market, buy a commodity (deepened economy)
     await page.evaluate(() => {
       const s = window.__VC__.surface;

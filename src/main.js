@@ -42,6 +42,7 @@ const el = {
   combat: document.getElementById('hud-combat'),
   xp: document.getElementById('hud-xp'),
   quest: document.getElementById('hud-quest'),
+  missions: document.getElementById('hud-missions'),
   radar: document.getElementById('radar'),
   markers: document.getElementById('markers'),
   minimap: document.getElementById('minimap'),
@@ -566,16 +567,38 @@ function drawMarkers(targets) {
   ctx.globalAlpha = 1;
 }
 
+// Active-mission guidance for the HUD: delivery destinations (with live distance in
+// space) and bounty progress. Empty string when there's nothing to track.
+function renderMissionGuidance() {
+  const ms = missionLog.active;
+  if (!ms.length) return '';
+  const shipPos = (scenes.mode === Mode.SPACE && space) ? space.ship.position : null;
+  return ms.map((m) => {
+    if (m.type === 'delivery') {
+      const w = WORLDS.find((x) => x.id === m.to);
+      let d = '';
+      if (shipPos && w) d = ` · ${fmtDist(Math.hypot(shipPos.x - w.position[0], shipPos.y - w.position[1], shipPos.z - w.position[2]))}`;
+      return `▸ ${m.cargo} → ${m.toName}${d}`;
+    }
+    return `<span class="bty">▸ Bounty ${m.progress || 0}/${m.target} raiders</span>`;
+  }).join('');
+}
+
 function updateMarkers() {
   if (!started || panel || starMap.isOpen) { clearMarkers(); return; }
   const targets = [];
   if (scenes.mode === Mode.SPACE && space) {
     const ship = space.ship.position;
     const dest = new Set(missionLog.active.filter((m) => m.type === 'delivery').map((m) => m.to));
+    const cur = questLog.currentStep();
+    const questWorld = cur && cur.type === 'travel' ? cur.world : null;
     for (const p of space.planets) {
       const w = p.userData.world;
       const isM = dest.has(w.id);
-      targets.push({ pos: p.position, label: w.name, color: isM ? 0x9effa0 : w.atmo, dist: p.position.distanceTo(ship), priority: isM });
+      const isQ = w.id === questWorld;
+      const label = isM ? `◈ ${w.name}` : isQ ? `✦ ${w.name}` : w.name;
+      const color = isM ? 0x9effa0 : isQ ? 0xffd24a : w.atmo;
+      targets.push({ pos: p.position, label, color, dist: p.position.distanceTo(ship), priority: isM || isQ });
     }
   } else if (scenes.mode === Mode.SURFACE && surface) {
     const ch = surface.character.position;
@@ -632,6 +655,7 @@ function renderHud() {
   el.xp.textContent = `LV ${player.xpLevel} [${'█'.repeat(xb)}${'·'.repeat(10 - xb)}]${player.skillPoints ? ` ${player.skillPoints}pt` : ''}`;
   const obj = questLog.objective();
   el.quest.textContent = obj ? `◈ ${obj}` : '';
+  el.missions.innerHTML = renderMissionGuidance();
   const h = scenes.current?.hud;
   if (!h) { el.reticle.classList.remove('show'); el.bossBar.classList.remove('show'); return; }
   el.reticle.classList.toggle('show', !!h.onFoot);

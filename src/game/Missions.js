@@ -7,7 +7,8 @@ import { WORLDS } from '../world/Worlds.js';
 const CARGO = ['med-gel', 'reactor cores', 'spice crates', 'salvaged tech', 'contraband', 'star maps'];
 
 let _idCounter = 1;
-function nextId() { return `m${_idCounter++}`; }
+// random suffix keeps ids unique across sessions (persisted missions vs fresh offers)
+function nextId() { return `m${_idCounter++}_${Math.floor(Math.random() * 1e6).toString(36)}`; }
 
 // Deterministic-enough offers per origin world, regenerated when first viewed:
 // a couple of delivery jobs plus a bounty hunt.
@@ -57,8 +58,11 @@ function distanceBetween(aId, bId) {
 export class MissionLog {
   constructor(player) {
     this.player = player;
-    this.active = [];
+    if (!player.missionsActive) player.missionsActive = [];
   }
+
+  // canonical list lives on the player so it persists with the save
+  get active() { return this.player.missionsActive; }
 
   has(id) { return this.active.some((m) => m.id === id); }
 
@@ -66,6 +70,7 @@ export class MissionLog {
     if (this.active.length >= 4) return { ok: false, reason: 'Mission log full (4 max).' };
     if (this.has(mission.id)) return { ok: false, reason: 'Already accepted.' };
     this.active.push(mission);
+    this.player.save();
     return { ok: true };
   }
 
@@ -73,7 +78,8 @@ export class MissionLog {
   arriveAt(worldId) {
     const done = this.active.filter((m) => m.type === 'delivery' && m.to === worldId);
     for (const m of done) this._complete(m);
-    this.active = this.active.filter((m) => !done.includes(m));
+    this.player.missionsActive = this.active.filter((m) => !done.includes(m));
+    this.player.save();
     return done; // list of completed missions (for toast/UI)
   }
 
@@ -86,7 +92,8 @@ export class MissionLog {
       if (m.progress >= m.target) done.push(m);
     }
     for (const m of done) this._complete(m);
-    this.active = this.active.filter((m) => !done.includes(m));
+    this.player.missionsActive = this.active.filter((m) => !done.includes(m));
+    this.player.save();
     return done;
   }
 

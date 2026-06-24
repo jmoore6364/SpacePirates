@@ -19,6 +19,7 @@ const DEFAULTS = () => ({
   credits: 500,
   upgrades: { engine: 0, shields: 0, weapons: 0, cargo: 0, hull: 0 },
   completed: [],
+  missionsActive: [], // accepted delivery/bounty missions (persisted)
   cargo: {}, // { commodityId: qty }
   questState: { active: null, step: 0, kill: 0, done: [] },
   xp: 0,
@@ -76,6 +77,7 @@ export class Player {
     if (this.credits > (this.peakCredits || 0)) this.peakCredits = this.credits; // track career peak
     return {
       credits: this.credits, upgrades: this.upgrades, completed: this.completed,
+      missionsActive: this.missionsActive,
       cargo: this.cargo, questState: this.questState,
       xp: this.xp, xpLevel: this.xpLevel, skillPoints: this.skillPoints, skills: this.skills,
       hull: this.hull, hullsOwned: this.hullsOwned,
