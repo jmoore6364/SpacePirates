@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Player } from '../../src/game/Player.js';
-import { MissionLog, generateOffers } from '../../src/game/Missions.js';
+import { MissionLog, generateOffers, customsHeatStop } from '../../src/game/Missions.js';
 
 test('accepting a delivery completes on arrival at its destination and pays', () => {
   const p = new Player(null);
@@ -91,6 +91,25 @@ test("smuggler's compartment cuts customs odds and persists", () => {
   const q = new Player(null);
   q.applyState(snap);
   assert.equal(q.hasSmugglerHold, true);
+});
+
+test('wanted-level customs fines you for heat alone at a secure port', () => {
+  // no heat, or lawless port → never stopped
+  assert.equal(customsHeatStop(0.85, 0, 0, () => 0), 0);   // clean record
+  assert.equal(customsHeatStop(0, 4, 0, () => 0), 0);      // lawless port
+
+  // hot at a secure port with a guaranteed roll → fined, and the fine scales with heat
+  const fine = customsHeatStop(0.85, 4, 0, () => 0);
+  assert.ok(fine > 0);
+  assert.ok(customsHeatStop(0.85, 5, 0, () => 0) > fine);  // more heat → bigger fine
+
+  // a high roll above the chance → waved through
+  assert.equal(customsHeatStop(0.5, 1, 0, () => 0.99), 0);
+
+  // allied standing buys leniency (lower chance than neutral for the same roll)
+  // at security 0.85, wanted 5: neutral chance = 0.85; allied(100) leniency=0.33 → 0.28
+  assert.equal(customsHeatStop(0.85, 5, 100, () => 0.5), 0);   // 0.5 > 0.28 → waved
+  assert.ok(customsHeatStop(0.85, 5, 0, () => 0.5) > 0);       // neutral 0.5 < 0.85 → stopped
 });
 
 test('mission log caps at 4', () => {

@@ -17,7 +17,7 @@ import { TouchControls } from './ui/TouchControls.js';
 import { firstEmptySlot, deleteSlot } from './game/SaveSlots.js';
 import { WORLDS } from './world/Worlds.js';
 import { player } from './game/Player.js';
-import { MissionLog, generateOffers } from './game/Missions.js';
+import { MissionLog, generateOffers, customsHeatStop } from './game/Missions.js';
 import { QuestLog } from './game/Quests.js';
 import { AudioManager } from './systems/Audio.js';
 import { tickMarket, commodityById, activeEvents } from './game/Market.js';
@@ -282,6 +282,15 @@ function land(world) {
       player.addRep(world.id, -12);
       audio.hit(); renderer.addShake(0.4);
       toast(`⚠ Customs seized your contraband — fined ${fine} cr and a black mark.`);
+    }
+
+    // wanted-level customs: arriving hot can get you fined for your heat alone
+    const heatFine = customsHeatStop(world.security || 0, baseThreat, player.repOf(world.id));
+    if (heatFine > 0) {
+      player.addCredits(-heatFine);
+      player.addRep(world.id, -8);
+      audio.hit(); renderer.addShake(0.3);
+      toast(`⚠ Customs flagged your record — detained and fined ${heatFine} cr.`);
     }
 
     const done = missionLog.arriveAt(world.id);

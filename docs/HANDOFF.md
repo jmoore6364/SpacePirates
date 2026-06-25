@@ -22,6 +22,12 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Wanted-level customs** — arriving "hot" (space heat / `combat.wanted`) at a secure
+  port can get you **detained and fined for your record alone**, no contraband needed.
+  `customsHeatStop(security, wanted, rep)` in `Missions.js` — chance scales with
+  security × heat, good standing buys leniency; fine = `wanted*120 + security*100`.
+  Applied in `land()` in `main.js` (independent of the contraband seizure + the
+  smuggler's compartment, which only hides cargo).
 - **Bounty-hunt waypoints** — while a bounty contract is active, the HUD flags the
   **nearest hostile** in space with a red ☠ marker (Warlord boss labelled separately)
   and the `#hud-missions` bounty line shows live nearest-hostile distance (or
@@ -71,8 +77,9 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
 User was offered these follow-ups after the contraband work — pick up here:
 1. ~~**Smuggler's compartment**~~ — DONE (see Features above).
 2. ~~**Bounty-hunt waypoints**~~ — DONE (see Features above).
-3. **Wanted-level customs** — your own heat triggers scans even with legal cargo.
+3. ~~**Wanted-level customs**~~ — DONE (see Features above).
 
-Other open threads mentioned earlier: a 4th quest (trade/`sell` step), quest-objective
-waypoint emphasis, and a **balance pass** (tune prices/HP/rewards across all the new
-systems — nothing has been balance-tuned as a whole yet).
+All three contraband follow-ups are now shipped. Other open threads still untouched:
+a 4th quest (trade/`sell` step), quest-objective waypoint emphasis, and a **balance
+pass** (tune prices/HP/rewards across all the new systems — nothing has been
+balance-tuned as a whole yet).

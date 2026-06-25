@@ -50,6 +50,18 @@ export function generateOffers(fromWorldId, count = 3) {
   return offers;
 }
 
+// Wanted-level customs: arriving "hot" at a secure port can get you stopped and
+// fined for your heat alone — no contraband required. Higher security and heat
+// raise the odds and the fine; good standing buys leniency. Returns the fine
+// amount in credits (0 = waved through).
+export function customsHeatStop(security = 0, wanted = 0, rep = 0, rng = Math.random) {
+  if (security <= 0 || wanted <= 0) return 0;
+  const leniency = Math.max(0.2, 1 - Math.max(0, rep) / 150);
+  const chance = security * (wanted / 5) * leniency;
+  if (rng() >= chance) return 0;
+  return wanted * 120 + Math.round(security * 100);
+}
+
 function distanceBetween(aId, bId) {
   const a = WORLDS.find((w) => w.id === aId);
   const b = WORLDS.find((w) => w.id === bId);
