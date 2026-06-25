@@ -590,7 +590,15 @@ function renderMissionGuidance() {
       if (shipPos && w) d = ` · ${fmtDist(Math.hypot(shipPos.x - w.position[0], shipPos.y - w.position[1], shipPos.z - w.position[2]))}`;
       return `▸ ${m.cargo} → ${m.toName}${d}`;
     }
-    return `<span class="bty">▸ Bounty ${m.progress || 0}/${m.target} raiders</span>`;
+    let hint = '';
+    if (shipPos && space && space.combat && space.combat.enemies.length) {
+      let best = Infinity;
+      for (const e of space.combat.enemies) best = Math.min(best, e.mesh.position.distanceToSquared(shipPos));
+      hint = ` · nearest ${fmtDist(Math.sqrt(best))}`;
+    } else if (shipPos) {
+      hint = ' · no hostiles — raise heat';
+    }
+    return `<span class="bty">▸ Bounty ${m.progress || 0}/${m.target} raiders${hint}</span>`;
   }).join('');
 }
 
@@ -609,6 +617,19 @@ function updateMarkers() {
       const label = isM ? `◈ ${w.name}` : isQ ? `✦ ${w.name}` : w.name;
       const color = isM ? 0x9effa0 : isQ ? 0xffd24a : w.atmo;
       targets.push({ pos: p.position, label, color, dist: p.position.distanceTo(ship), priority: isM || isQ });
+    }
+    // bounty waypoint: flag the nearest hostile while a bounty contract is open
+    const bty = missionLog.active.find((m) => m.type === 'bounty');
+    if (bty && space.combat && space.combat.enemies.length) {
+      let near = null, best = Infinity;
+      for (const e of space.combat.enemies) {
+        const d = e.mesh.position.distanceToSquared(ship);
+        if (d < best) { best = d; near = e; }
+      }
+      if (near) {
+        const tag = near.isBoss ? '☠ Warlord' : `☠ Bounty ${bty.progress || 0}/${bty.target}`;
+        targets.push({ pos: near.mesh.position, label: tag, color: 0xff5b6e, dist: Math.sqrt(best), priority: true });
+      }
     }
   } else if (scenes.mode === Mode.SURFACE && surface) {
     const ch = surface.character.position;

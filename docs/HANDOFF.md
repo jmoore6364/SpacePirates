@@ -22,6 +22,11 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Bounty-hunt waypoints** — while a bounty contract is active, the HUD flags the
+  **nearest hostile** in space with a red ☠ marker (Warlord boss labelled separately)
+  and the `#hud-missions` bounty line shows live nearest-hostile distance (or
+  "no hostiles — raise heat" when the sky is clear). Pure HUD; in `updateMarkers()` /
+  `renderMissionGuidance()` in `main.js`, reads `space.combat.enemies`.
 - **Smuggler's compartment** — one-time ship module (Shipyard → MODULES, 2200 cr,
   `player.hasSmugglerHold`) that multiplies customs-scan odds by `SMUGGLER_SCAN_MULT`
   (0.4, ~60% fewer scans). Applied inside `MissionLog.runCustoms` (reads the flag off
@@ -65,7 +70,7 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
 ## Where we left off / next ideas (not started)
 User was offered these follow-ups after the contraband work — pick up here:
 1. ~~**Smuggler's compartment**~~ — DONE (see Features above).
-2. **Bounty-hunt waypoints** — point the player at the nearest hostile for bounty missions.
+2. ~~**Bounty-hunt waypoints**~~ — DONE (see Features above).
 3. **Wanted-level customs** — your own heat triggers scans even with legal cargo.
 
 Other open threads mentioned earlier: a 4th quest (trade/`sell` step), quest-objective
