@@ -13,12 +13,14 @@ const HP_REGEN = 6; // per second after a lull
 
 // On-foot enforcer archetypes — distinct HP, pace, range and threat (mirrors the
 // space enemy roster). grunt is the original baseline.
-const ENFORCER_TYPES = {
-  grunt:   { hp: 40,  speed: 11, ideal: 16, fireCd: 1.6, dmg: 8,  bounty: 50,  scale: 1.0,  color: 0xff3b50 },
-  heavy:   { hp: 95,  speed: 7,  ideal: 13, fireCd: 1.9, dmg: 16, bounty: 110, scale: 1.35, color: 0xff7a3c },
-  sniper:  { hp: 28,  speed: 9,  ideal: 30, fireCd: 2.6, dmg: 22, bounty: 90,  scale: 0.9,  color: 0xc06bff },
+export const ENFORCER_TYPES = {
+  // bounty/HP climbs grunt → heavy → captain so tougher targets pay off; the sniper
+  // is a glass cannon (low HP, high dmg/range) and keeps a deliberate risk premium.
+  grunt:   { hp: 40,  speed: 11, ideal: 16, fireCd: 1.6, dmg: 8,  bounty: 55,  scale: 1.0,  color: 0xff3b50 },
+  heavy:   { hp: 95,  speed: 7,  ideal: 13, fireCd: 1.9, dmg: 16, bounty: 160, scale: 1.35, color: 0xff7a3c },
+  sniper:  { hp: 28,  speed: 9,  ideal: 30, fireCd: 2.6, dmg: 22, bounty: 78,  scale: 0.9,  color: 0xc06bff },
   // on-foot mini-boss: an Enforcer Captain (the ground answer to the Warlord)
-  captain: { hp: 260, speed: 9,  ideal: 18, fireCd: 0.85, dmg: 14, bounty: 600, scale: 1.7, color: 0xffd24a, volley: 3, boss: true },
+  captain: { hp: 260, speed: 9,  ideal: 18, fireCd: 0.85, dmg: 14, bounty: 720, scale: 1.7, color: 0xffd24a, volley: 3, boss: true },
 };
 
 export class GroundCombat {

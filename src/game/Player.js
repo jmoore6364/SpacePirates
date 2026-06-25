@@ -8,9 +8,11 @@ import { ACHIEVEMENTS } from './Achievements.js';
 import { writeSlot, readSlot, mostRecentSlot, migrateLegacy, hasAnySave } from './SaveSlots.js';
 
 export const UPGRADES = {
+  // mult sets how steeply each level's cost climbs; combat tracks share 1.6 so no
+  // single track walls out late (cargo stays cheapest at 1.5).
   engine:  { name: 'Engine',  desc: 'Top speed',      max: 5, baseCost: 200, mult: 1.6, per: 90  },
-  shields: { name: 'Shields', desc: 'Damage soak',    max: 5, baseCost: 250, mult: 1.7, per: 25  },
-  weapons: { name: 'Weapons', desc: 'Laser damage',   max: 5, baseCost: 300, mult: 1.7, per: 8   },
+  shields: { name: 'Shields', desc: 'Damage soak',    max: 5, baseCost: 250, mult: 1.6, per: 25  },
+  weapons: { name: 'Weapons', desc: 'Laser damage',   max: 5, baseCost: 300, mult: 1.6, per: 8   },
   cargo:   { name: 'Cargo',   desc: 'Hold capacity',  max: 5, baseCost: 150, mult: 1.5, per: 10  },
   hull:    { name: 'Hull',    desc: 'Max integrity',  max: 5, baseCost: 220, mult: 1.6, per: 40  },
 };
@@ -55,6 +57,10 @@ export const WINGMAN_PRICE = 3000;
 
 // One-time cost to install a hidden smuggler's compartment (cuts customs odds).
 export const SMUGGLER_PRICE = 2200;
+
+// Ship-destruction repair bill: 10% of your balance, capped so one death never
+// guts a wealthy captain (and naturally trivial when you're broke).
+export const DEATH_PENALTY_CAP = 1200;
 
 // Customs-scan odds multiplier with the compartment installed (~60% fewer scans).
 export const SMUGGLER_SCAN_MULT = 0.4;
@@ -319,6 +325,9 @@ export class Player {
     this.save();
     return true;
   }
+
+  // Credits lost when your ship is destroyed (capped — see DEATH_PENALTY_CAP).
+  deathPenalty() { return Math.min(DEATH_PENALTY_CAP, Math.round(this.credits * 0.1)); }
 
   addCredits(n) {
     this.credits = Math.max(0, this.credits + Math.round(n));

@@ -22,6 +22,19 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Balance pass** (targeted, not a renumber — economy was already roughly tuned):
+  - *Risk/escalation:* space bounties re-tuned so bounty/HP **rises** up the ladder
+    (scout 42 / raider 82 / gunship 210 / Warlord 1600; ~2.3→3.1 cr·HP⁻¹) and the
+    heat kill-bonus is `wanted*15` (was *10). Ground enforcers fixed too (grunt 55 /
+    heavy 160 / captain 720; sniper 78 keeps a glass-cannon premium).
+  - *Smooth progression:* Weapons & Shields upgrade `mult` 1.7→1.6 so the late
+    levels aren't a wall — every track now maxes for ≤6k (all combat tracks 1.6,
+    cargo cheapest at 1.5).
+  - *Fairer penalties:* ship-destruction repair bill capped — `player.deathPenalty()`
+    = min(10% of credits, `DEATH_PENALTY_CAP`=1200). No more losing 5k per death.
+  - *Locked with tests:* new `tests/logic/balance.test.js` asserts the bounty/HP
+    ladder, monotonic+banded upgrade costs, and the capped death penalty (relationships,
+    not magic numbers, so tuning stays free). `ENEMY_TYPES`/`ENFORCER_TYPES` now exported.
 - **Wanted-level customs** — arriving "hot" (space heat / `combat.wanted`) at a secure
   port can get you **detained and fined for your record alone**, no contraband needed.
   `customsHeatStop(security, wanted, rep)` in `Missions.js` — chance scales with
@@ -79,7 +92,6 @@ User was offered these follow-ups after the contraband work — pick up here:
 2. ~~**Bounty-hunt waypoints**~~ — DONE (see Features above).
 3. ~~**Wanted-level customs**~~ — DONE (see Features above).
 
-All three contraband follow-ups are now shipped. Other open threads still untouched:
-a 4th quest (trade/`sell` step), quest-objective waypoint emphasis, and a **balance
-pass** (tune prices/HP/rewards across all the new systems — nothing has been
-balance-tuned as a whole yet).
+All three contraband follow-ups + the balance pass are now shipped. Other open
+threads still untouched: a 4th quest (trade/`sell` step) and quest-objective waypoint
+emphasis. Further balance tuning, if wanted, can build on `balance.test.js` invariants.

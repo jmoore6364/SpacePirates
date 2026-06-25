@@ -19,12 +19,13 @@ const SPLASH_RADIUS = 22;
 const SPLASH_DMG = 24;
 
 // Enemy archetypes — distinct feel and threat. Mix is gated by wanted level.
+// Bounty rises faster than HP up the ladder (≈2.3 → 3.1 cr/HP) so escalation pays.
 export const ENEMY_TYPES = {
-  scout:   { name: 'Scout',   hp: 18, speed: 175, ideal: 150, range: 300, fireCd: 1.7, dmg: 6,  bounty: 45,  scale: 0.8, color: 0x66e0ff, strafe: 0.95 },
-  raider:  { name: 'Raider',  hp: 34, speed: 120, ideal: 180, range: 360, fireCd: 1.4, dmg: 9,  bounty: 70,  scale: 1.0, color: 0xff5b6e, strafe: 0.6 },
-  gunship: { name: 'Gunship', hp: 84, speed: 78,  ideal: 230, range: 440, fireCd: 1.0, dmg: 17, bounty: 150, scale: 1.7, color: 0xffa23c, strafe: 0.2 },
+  scout:   { name: 'Scout',   hp: 18, speed: 175, ideal: 150, range: 300, fireCd: 1.7, dmg: 6,  bounty: 42,  scale: 0.8, color: 0x66e0ff, strafe: 0.95 },
+  raider:  { name: 'Raider',  hp: 34, speed: 120, ideal: 180, range: 360, fireCd: 1.4, dmg: 9,  bounty: 82,  scale: 1.0, color: 0xff5b6e, strafe: 0.6 },
+  gunship: { name: 'Gunship', hp: 84, speed: 78,  ideal: 230, range: 440, fireCd: 1.0, dmg: 17, bounty: 210, scale: 1.7, color: 0xffa23c, strafe: 0.2 },
   // boss: a pirate Warlord capital ship that hunts you at max heat
-  warlord: { name: 'Warlord', hp: 520, speed: 55, ideal: 210, range: 560, fireCd: 0.9, dmg: 14, bounty: 1200, scale: 3.0, color: 0xff3b50, strafe: 0.35, volley: 3, boss: true },
+  warlord: { name: 'Warlord', hp: 520, speed: 55, ideal: 210, range: 560, fireCd: 0.9, dmg: 14, bounty: 1600, scale: 3.0, color: 0xff3b50, strafe: 0.35, volley: 3, boss: true },
 };
 
 export class Combat {
@@ -433,7 +434,7 @@ export class Combat {
       return;
     }
     this.wanted = clamp(Math.floor(this.kills / 2), 0, 5);
-    const bounty = (e.type?.bounty || 60) + this.wanted * 10;
+    const bounty = (e.type?.bounty || 60) + this.wanted * 15; // higher heat = juicier bounties
     player.addCredits(bounty);
     this.onEvent({ type: 'kill', bounty, enemy: e.type?.name });
   }
@@ -467,7 +468,7 @@ export class Combat {
     this.hull = this.maxHull;
     this.wanted = 0;
     this.kills = 0;
-    const penalty = Math.round(player.credits * 0.1);
+    const penalty = player.deathPenalty();
     player.addCredits(-penalty);
     this.onEvent({ type: 'destroyed', penalty });
   }
