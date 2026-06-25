@@ -3,6 +3,7 @@
 // lands at the destination, paying out credits. Active missions persist in memory
 // for the session (kept simple; could be saved alongside Player later).
 import { WORLDS } from '../world/Worlds.js';
+import { SMUGGLER_SCAN_MULT } from './Player.js';
 
 const CARGO = ['med-gel', 'reactor cores', 'spice crates', 'salvaged tech', 'contraband', 'star maps'];
 
@@ -84,7 +85,8 @@ export class MissionLog {
   // Returns the confiscated missions (host applies the fine/rep hit).
   runCustoms(worldId, security = 0, rep = 0, rng = Math.random) {
     if (security <= 0) return [];
-    const chance = security * Math.max(0.15, 1 - Math.max(0, rep) / 150);
+    const holdMult = this.player.hasSmugglerHold ? SMUGGLER_SCAN_MULT : 1;
+    const chance = security * Math.max(0.15, 1 - Math.max(0, rep) / 150) * holdMult;
     const caught = this.active.filter((m) =>
       m.type === 'delivery' && m.illegal && m.to !== worldId && rng() < chance);
     if (caught.length) {

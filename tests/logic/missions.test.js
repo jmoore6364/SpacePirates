@@ -68,6 +68,31 @@ test('no customs risk at zero-security ports or at the destination', () => {
   assert.equal(log.runCustoms('verdant', 0.85, 0, () => 0).length, 0); // this IS the destination
 });
 
+test("smuggler's compartment cuts customs odds and persists", () => {
+  const p = new Player(null);
+  const log = new MissionLog(p);
+  const hot = { id: 'hot', type: 'delivery', to: 'the-maw', toName: 'The Maw', cargo: 'contraband', illegal: true, units: 2, reward: 300 };
+  log.accept(hot);
+
+  // buy the compartment
+  p.credits = 5000;
+  assert.equal(p.buySmugglerHold(), true);
+  assert.equal(p.hasSmugglerHold, true);
+  assert.equal(p.buySmugglerHold(), false); // already installed
+
+  // a borderline roll that WOULD catch without the hold is now under threshold:
+  // base chance at security 0.85, rep 0 = 0.85; with hold = 0.85 * 0.4 = 0.34
+  assert.equal(log.runCustoms('verdant', 0.85, 0, () => 0.5).length, 0); // 0.5 > 0.34 → safe
+  // a roll below the reduced threshold still gets caught
+  assert.equal(log.runCustoms('verdant', 0.85, 0, () => 0.1).length, 1); // 0.1 < 0.34 → caught
+
+  // survives a save/reload
+  const snap = JSON.parse(JSON.stringify(p.serialize()));
+  const q = new Player(null);
+  q.applyState(snap);
+  assert.equal(q.hasSmugglerHold, true);
+});
+
 test('mission log caps at 4', () => {
   const p = new Player(null);
   const log = new MissionLog(p);

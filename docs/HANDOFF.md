@@ -22,6 +22,10 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Smuggler's compartment** — one-time ship module (Shipyard → MODULES, 2200 cr,
+  `player.hasSmugglerHold`) that multiplies customs-scan odds by `SMUGGLER_SCAN_MULT`
+  (0.4, ~60% fewer scans). Applied inside `MissionLog.runCustoms` (reads the flag off
+  `this.player`; no call-site change). Persisted in serialize/applyState.
 - **Missions: cargo + contraband smuggling risk** — deliveries occupy cargo `units`
   (NO HOLD if they won't fit); illegal cargo (contraband/spice) pays a premium but
   risks a **customs scan** at secure ports (new per-world `security` in Worlds.js)
@@ -60,7 +64,7 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
 
 ## Where we left off / next ideas (not started)
 User was offered these follow-ups after the contraband work — pick up here:
-1. **Smuggler's compartment** — a ship upgrade/hull module that reduces customs scan odds.
+1. ~~**Smuggler's compartment**~~ — DONE (see Features above).
 2. **Bounty-hunt waypoints** — point the player at the nearest hostile for bounty missions.
 3. **Wanted-level customs** — your own heat triggers scans even with legal cargo.
 

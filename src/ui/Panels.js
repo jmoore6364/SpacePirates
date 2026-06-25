@@ -2,7 +2,7 @@
 // Mission Board (delivery + bounty jobs), and the Market (commodity trading).
 // All read/write the shared player + mission log and call onClose so the scene
 // can unlock input.
-import { UPGRADES, SKILLS, MISSILE_PRICE, WINGMAN_PRICE } from '../game/Player.js';
+import { UPGRADES, SKILLS, MISSILE_PRICE, WINGMAN_PRICE, SMUGGLER_PRICE } from '../game/Player.js';
 import { HULLS } from '../game/Hulls.js';
 import { WEAPONS, ARMORS } from '../game/Weapons.js';
 import { marketTable, buy as marketBuy, sell as marketSell, activeEventsFor, commodityById, refuel, FUEL_PRICE } from '../game/Market.js';
@@ -231,16 +231,26 @@ export class Shipyard extends BasePanel {
          <div class="ds">Hire a fighter to fly your wing and shoot down hostiles.</div></div>
          <button class="vc-btn" data-hire ${p.credits >= WINGMAN_PRICE ? '' : 'disabled'}>${WINGMAN_PRICE} cr</button></div>`;
 
+    const smug = p.hasSmugglerHold
+      ? `<div class="vc-row" style="grid-template-columns:1fr auto"><div><div class="nm">Smuggler's Compartment</div>
+         <div class="ds">Installed — a hidden hold makes contraband far harder for customs to find.</div></div><span class="vc-tag">INSTALLED</span></div>`
+      : `<div class="vc-row" style="grid-template-columns:1fr auto"><div><div class="nm">Smuggler's Compartment</div>
+         <div class="ds">A concealed hold that cuts customs-scan odds by ~60%.</div></div>
+         <button class="vc-btn" data-smug ${p.credits >= SMUGGLER_PRICE ? '' : 'disabled'}>${SMUGGLER_PRICE} cr</button></div>`;
+
     this.root.innerHTML = `<div class="vc-panel">
       <div class="vc-head"><div class="vc-title">◈ SHIPYARD</div><div class="vc-credits">${p.credits} cr</div></div>
       <div class="vc-sub">Buy and switch hulls. New hull applies on your next launch. [E]/[Esc] to leave.</div>
       ${rows}
-      <div class="vc-sub" style="opacity:.8;margin-top:10px">ESCORT</div>${wing}</div>`;
+      <div class="vc-sub" style="opacity:.8;margin-top:10px">ESCORT</div>${wing}
+      <div class="vc-sub" style="opacity:.8;margin-top:10px">MODULES</div>${smug}</div>`;
     const refresh = () => { this.render(); this.onChange && this.onChange(); };
     this.root.querySelectorAll('[data-buyhull]').forEach((b) => b.addEventListener('click', () => { if (p.buyHull(b.dataset.buyhull)) refresh(); }));
     this.root.querySelectorAll('[data-equip]').forEach((b) => b.addEventListener('click', () => { if (p.setHull(b.dataset.equip)) refresh(); }));
     const hire = this.root.querySelector('[data-hire]');
     if (hire) hire.addEventListener('click', () => { if (p.buyWingman()) refresh(); });
+    const smugBtn = this.root.querySelector('[data-smug]');
+    if (smugBtn) smugBtn.addEventListener('click', () => { if (p.buySmugglerHold()) refresh(); });
   }
 }
 

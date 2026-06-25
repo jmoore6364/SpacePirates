@@ -33,6 +33,7 @@ const DEFAULTS = () => ({
   missiles: 6,                  // homing-missile ammo (space secondary weapon)
   maxMissiles: 6,
   hasWingman: false,            // hired escort fighter (helps in space combat)
+  hasSmugglerHold: false,       // hidden compartment: cuts customs-scan odds
   sidearm: 'blaster',           // equipped on-foot weapon
   sidearmsOwned: ['blaster'],
   armor: 'flightsuit',          // equipped on-foot armor
@@ -51,6 +52,12 @@ export const MISSILE_PRICE = 45;
 
 // One-time cost to hire a wingman escort.
 export const WINGMAN_PRICE = 3000;
+
+// One-time cost to install a hidden smuggler's compartment (cuts customs odds).
+export const SMUGGLER_PRICE = 2200;
+
+// Customs-scan odds multiplier with the compartment installed (~60% fewer scans).
+export const SMUGGLER_SCAN_MULT = 0.4;
 
 // Skill tree (data-driven). Each level adds a flat perk to a derived stat.
 export const SKILLS = {
@@ -83,7 +90,7 @@ export class Player {
       hull: this.hull, hullsOwned: this.hullsOwned,
       fuel: this.fuel, maxFuel: this.maxFuel,
       missiles: this.missiles, maxMissiles: this.maxMissiles,
-      hasWingman: this.hasWingman,
+      hasWingman: this.hasWingman, hasSmugglerHold: this.hasSmugglerHold,
       sidearm: this.sidearm, sidearmsOwned: this.sidearmsOwned,
       armor: this.armor, armorsOwned: this.armorsOwned,
       runStats: this.runStats, achievements: this.achievements,
@@ -196,6 +203,15 @@ export class Player {
     if (this.hasWingman || this.credits < WINGMAN_PRICE) return false;
     this.credits -= WINGMAN_PRICE;
     this.hasWingman = true;
+    this.save();
+    return true;
+  }
+
+  // --- smuggler's compartment ---
+  buySmugglerHold() {
+    if (this.hasSmugglerHold || this.credits < SMUGGLER_PRICE) return false;
+    this.credits -= SMUGGLER_PRICE;
+    this.hasSmugglerHold = true;
     this.save();
     return true;
   }
