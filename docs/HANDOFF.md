@@ -22,6 +22,16 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Animated on-foot character (POC)** — the main character is now an animated 3D
+  model (Kenney "Blocky Characters", CC0, node-animated — no skinning). `Models.js`
+  loads `character-a.glb`, `characterModel()` returns a normalized clone (~3.4 tall,
+  feet at y=0, faces +Z via a yaw pivot) + its 27 clips. `Character.js` builds the
+  visual as a swappable child, runs an `AnimationMixer`, and crossfades idle⇄walk by
+  `moving`; `_bobAmp` zeroed when animated (clip provides the motion). Falls back to
+  the procedural figure if loading fails. **NOTE:** the GLB referenced an *external*
+  texture (`Textures/texture-a.png`) which broke under Vite's `?url` hashing — fixed
+  by embedding it with `npx @gltf-transform/cli copy` so the GLB is self-contained
+  (do the same for any future Blocky Characters). Crowds/enforcers still procedural.
 - **3D ship models (POC)** — real low-poly models replace the procedural player ship.
   Assets: Kenney "Space Kit" GLBs (CC0, license in `src/assets/models/KENNEY-LICENSE.txt`).
   `src/entities/Models.js` preloads + normalizes (center/scale/yaw 180° to face -Z) and

@@ -1,21 +1,52 @@
-// On-foot 3rd-person character: a low-poly figure + a camera-relative walk
-// controller with simple AABB collision against city buildings and a walk bob.
+// On-foot 3rd-person character: an animated 3D model (Kenney Blocky Characters, CC0)
+// when loaded, else a low-poly procedural figure. Camera-relative walk controller
+// with simple AABB collision against city buildings.
 import { THREE } from '../renderer/Renderer.js';
 import { clamp, lerp } from '../util/math.js';
+import { characterModel } from './Models.js';
 
 export class Character {
   constructor() {
-    this.object = buildFigure();
+    this.object = new THREE.Group();   // stable transform; visual is a swappable child
     this.heading = Math.PI;        // facing -Z initially
     this.speed = 16;               // units/s
     this.radius = 1.2;             // collision radius
     this._bob = 0;
+    this._bobAmp = 0.25;           // vertical walk bob (0 when an animation handles it)
     this._vel = new THREE.Vector3();
     this.moving = false;
     this.groundSampler = null; // (x,z) => terrain height; set by the scene
+
+    this.mixer = null; this.actions = null; this.current = null;
+    this._buildVisual();
   }
 
   get position() { return this.object.position; }
+
+  // Use the animated model if it's loaded, otherwise the procedural figure.
+  _buildVisual() {
+    const m = characterModel();
+    if (m) {
+      this.object.add(m.object);
+      this.mixer = new THREE.AnimationMixer(m.object);
+      this.actions = {};
+      for (const clip of m.animations) this.actions[clip.name] = this.mixer.clipAction(clip);
+      this._bobAmp = 0; // the walk/idle clips provide the motion
+      this._setClip('idle');
+    } else {
+      this.object.add(buildFigure());
+    }
+    this.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  }
+
+  // Crossfade to a named animation clip (idle/walk/...). No-op if already active.
+  _setClip(name) {
+    if (!this.actions || this.current === name || !this.actions[name]) return;
+    const prev = this.current && this.actions[this.current];
+    if (prev) prev.fadeOut(0.18);
+    this.actions[name].reset().fadeIn(0.18).play();
+    this.current = name;
+  }
 
   // 3rd-person aim controls: `yaw` is the look/heading the character faces (set by
   // the scene from mouse/keys/touch turning); `forward` walks along that facing,
@@ -44,9 +75,15 @@ export class Character {
       this._bob = lerp(this._bob, 0, clamp(dt * 8, 0, 1));
     }
 
-    // follow the terrain with a little walk bob on top
+    // follow the terrain with a little walk bob on top (skipped when animated)
     const groundY = this.groundSampler ? this.groundSampler(this.position.x, this.position.z) : 0;
-    this.position.y = groundY + Math.abs(Math.sin(this._bob)) * 0.25;
+    this.position.y = groundY + Math.abs(Math.sin(this._bob)) * this._bobAmp;
+
+    // drive the animation: walk while moving, idle when still
+    if (this.mixer) {
+      this._setClip(this.moving ? 'walk' : 'idle');
+      this.mixer.update(dt);
+    }
   }
 
   _resolveCollision(next, colliders) {

@@ -9,6 +9,7 @@ import speederA from '../assets/models/craft_speederA.glb?url';
 import racer from '../assets/models/craft_racer.glb?url';
 import cargoA from '../assets/models/craft_cargoA.glb?url';
 import speederD from '../assets/models/craft_speederD.glb?url';
+import characterA from '../assets/models/character-a.glb?url';
 
 // hull id → { url, size: target longest-axis length in world units }
 const SHIP_MODELS = {
@@ -22,7 +23,13 @@ const SHIP_MODELS = {
 // normalized model is yawed 180° to point the nose the right way.
 const MODEL_YAW = Math.PI;
 
+// On-foot character (Kenney "Blocky Characters", CC0). Node-animated (no skinning),
+// ~3.4 units tall to match the procedural figure, facing +Z in local space.
+const CHAR_HEIGHT = 3.4;
+const CHAR_YAW = 0; // model already faces +Z, matching our characters' forward
+
 const _cache = new Map(); // hullId → normalized THREE.Object3D (template to clone)
+let _charTpl = null;      // { scene, animations } template for the player character
 let _loaded = false;
 let _loadPromise = null;
 
@@ -44,17 +51,18 @@ function normalize(scene, size) {
   return root;
 }
 
-// Kick off loading all ship models. Safe to call repeatedly; returns the same promise.
-export function preloadShipModels() {
+// Kick off loading all models (ships + character). Safe to call repeatedly.
+export function preloadModels() {
   if (_loadPromise) return _loadPromise;
   const loader = new GLTFLoader();
   const load = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
-  _loadPromise = Promise.all(
-    Object.entries(SHIP_MODELS).map(([hull, def]) =>
-      load(def.url).then((gltf) => { _cache.set(hull, normalize(gltf.scene, def.size)); })
-        .catch(() => { /* leave this hull on the procedural fallback */ }),
-    ),
-  ).then(() => { _loaded = true; });
+  const ships = Object.entries(SHIP_MODELS).map(([hull, def]) =>
+    load(def.url).then((gltf) => { _cache.set(hull, normalize(gltf.scene, def.size)); })
+      .catch(() => { /* leave this hull on the procedural fallback */ }));
+  const character = load(characterA)
+    .then((gltf) => { _charTpl = { scene: gltf.scene, animations: gltf.animations }; })
+    .catch(() => { /* leave the on-foot player on the procedural figure */ });
+  _loadPromise = Promise.all([...ships, character]).then(() => { _loaded = true; });
   return _loadPromise;
 }
 
@@ -64,4 +72,26 @@ export function modelsReady() { return _loaded; }
 export function shipModel(hullId) {
   const tpl = _cache.get(hullId);
   return tpl ? tpl.clone(true) : null;
+}
+
+// A fresh, normalized clone of the player character with its animation clips, or
+// null to fall back to the procedural figure. The clip tracks bind by node name, so
+// a plain deep clone animates correctly (these models have no skinned skeleton).
+export function characterModel() {
+  if (!_charTpl) return null;
+  const inner = _charTpl.scene.clone(true);
+  // recenter feet to y=0 and center on x/z
+  const box = new THREE.Box3().setFromObject(inner);
+  const span = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  inner.position.set(-center.x, -box.min.y, -center.z);
+  // yaw on a separate pivot so it doesn't rotate the recenter offset
+  const yawPivot = new THREE.Group();
+  yawPivot.rotation.y = CHAR_YAW;
+  yawPivot.add(inner);
+  // scale the whole thing to a uniform height
+  const wrapper = new THREE.Group();
+  wrapper.add(yawPivot);
+  wrapper.scale.setScalar(CHAR_HEIGHT / (span.y || 1));
+  return { object: wrapper, animations: _charTpl.animations };
 }
