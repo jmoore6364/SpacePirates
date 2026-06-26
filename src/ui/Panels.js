@@ -382,7 +382,10 @@ export class Market extends BasePanel {
       if (marketBuy(p, this.world.id, b.dataset.buy, 1).ok) { this.render(); this.onChange && this.onChange(); }
     }));
     this.root.querySelectorAll('[data-sell]').forEach((b) => b.addEventListener('click', () => {
-      if (marketSell(p, this.world.id, b.dataset.sell, 1).ok) { this.render(); this.onChange && this.onChange(); }
+      if (marketSell(p, this.world.id, b.dataset.sell, 1).ok) {
+        this.onSell && this.onSell(b.dataset.sell, 1, this.world.id);
+        this.render(); this.onChange && this.onChange();
+      }
     }));
     const rf = this.root.querySelector('[data-refuel]');
     if (rf) rf.addEventListener('click', () => { if (refuel(p).ok) { this.render(); this.onChange && this.onChange(); } });

@@ -22,6 +22,12 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **4th quest "The Spice Run" + `sell` step type** — new data-driven step
+  `{ type:'sell', commodity, count, world? }` advanced by `QuestLog.onSell(id, qty,
+  worldId)`. Wired from the Market panel (`market.onSell` → host in `main.js`).
+  The arc (giver **Sable** @ Dust Reach, gated behind Deep Cut, 4200 cr): take job →
+  buy Spice at The Maw → fence 8 Spice on Neon Haven → bring Sable her cut. Quest
+  state gained a `sell` counter (reset in start/_advance, persisted in questState).
 - **Balance pass** (targeted, not a renumber — economy was already roughly tuned):
   - *Risk/escalation:* space bounties re-tuned so bounty/HP **rises** up the ladder
     (scout 42 / raider 82 / gunship 210 / Warlord 1600; ~2.3→3.1 cr·HP⁻¹) and the
@@ -92,6 +98,7 @@ User was offered these follow-ups after the contraband work — pick up here:
 2. ~~**Bounty-hunt waypoints**~~ — DONE (see Features above).
 3. ~~**Wanted-level customs**~~ — DONE (see Features above).
 
-All three contraband follow-ups + the balance pass are now shipped. Other open
-threads still untouched: a 4th quest (trade/`sell` step) and quest-objective waypoint
-emphasis. Further balance tuning, if wanted, can build on `balance.test.js` invariants.
+All three contraband follow-ups + the balance pass + the 4th quest are now shipped.
+Last remaining thread from this list: **quest-objective waypoint emphasis** (make the
+active quest's current travel/sell target stand out more on the HUD/markers). Further
+balance tuning, if wanted, can build on `balance.test.js` invariants.

@@ -1,8 +1,8 @@
 // Renderer-agnostic quest framework + the campaign. A quest is an ordered list of
 // steps; the QuestLog tracks the active quest's progress and persists it on the
 // player. Step types: talk (to a named NPC at a world), travel (land at a world),
-// kill (destroy N raiders), mine (mine N units of ore). Completion pays the
-// reward. See issue #4.
+// kill (destroy N raiders), mine (mine N units of ore), sell (sell N units of a
+// commodity, optionally at a specific world). Completion pays the reward. See #4.
 
 export const QUESTS = [
   {
@@ -69,6 +69,27 @@ export const QUESTS = [
         say: ["\"Hah! Knew you had it in you. The crews'll know your name now, Corsair.\""] },
     ],
   },
+  {
+    id: 'spice-run',
+    name: 'The Spice Run',
+    giver: 'Sable',
+    giverWorld: 'dust-reach',
+    requires: 'deep-cut', // the crews trust you now — time for the real money
+    intro: [
+      "Sable lounges against a sun-bleached gantry, all easy smile and hard eyes.",
+      "\"Word is you move things for the Maw crews. I deal in something finer — spice.\"",
+      "\"Score a load off the Maw, fence it on Neon Haven where it sells dear, and I'll cut you in handsomely.\"",
+    ],
+    reward: { credits: 4200 },
+    steps: [
+      { type: 'talk', npc: 'sable', world: 'dust-reach', desc: 'Take the job from Sable (Dust Reach)',
+        say: ["\"Spice runs cheap on the Maw. Buy a load there, then fence it on Neon Haven.\""] },
+      { type: 'travel', world: 'the-maw', desc: 'Buy a load of Spice at The Maw market' },
+      { type: 'sell', commodity: 'spice', count: 8, world: 'neon-haven', desc: 'Fence 8 Spice on Neon Haven' },
+      { type: 'talk', npc: 'sable', world: 'dust-reach', final: true, desc: 'Bring Sable her cut (Dust Reach)',
+        say: ["\"Smooth as silk. You've got a real talent for this, Corsair. We'll do this again.\""] },
+    ],
+  },
 ];
 
 export const questById = (id) => QUESTS.find((q) => q.id === id);
@@ -78,7 +99,7 @@ const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 export class QuestLog {
   constructor(player) {
     this.player = player;
-    if (!player.questState) player.questState = { active: null, step: 0, kill: 0, mine: 0, done: [] };
+    if (!player.questState) player.questState = { active: null, step: 0, kill: 0, mine: 0, sell: 0, done: [] };
     this.s = player.questState;
   }
 
@@ -121,12 +142,13 @@ export class QuestLog {
     if (!st) return null;
     if (st.type === 'kill') return `${this.active.name}: ${st.desc} (${this.s.kill}/${st.count})`;
     if (st.type === 'mine') return `${this.active.name}: ${st.desc} (${this.s.mine || 0}/${st.count})`;
+    if (st.type === 'sell') return `${this.active.name}: ${st.desc} (${this.s.sell || 0}/${st.count})`;
     return `${this.active.name}: ${st.desc}`;
   }
 
   start(id) {
     if (this.s.active || this.isDone(id) || !questById(id)) return false;
-    this.s.active = id; this.s.step = 0; this.s.kill = 0; this.s.mine = 0;
+    this.s.active = id; this.s.step = 0; this.s.kill = 0; this.s.mine = 0; this.s.sell = 0;
     this.player.save();
     return true;
   }
@@ -172,6 +194,19 @@ export class QuestLog {
     return { advanced: true, progress: true };
   }
 
+  // Selling goods at a market. Advances a sell step when the commodity (and world,
+  // if the step pins one) match; other sales are ignored.
+  onSell(commodityId, qty = 1, worldId = null) {
+    const st = this.currentStep();
+    if (!st || st.type !== 'sell') return { advanced: false };
+    if (st.commodity && st.commodity !== commodityId) return { advanced: false };
+    if (st.world && st.world !== worldId) return { advanced: false };
+    this.s.sell = (this.s.sell || 0) + qty;
+    if (this.s.sell >= st.count) { this.s.sell = 0; return this._advance(); }
+    this.player.save();
+    return { advanced: true, progress: true };
+  }
+
   _advance() {
     const q = this.active;
     this.s.step += 1;
@@ -179,7 +214,7 @@ export class QuestLog {
       const reward = q.reward || {};
       if (reward.credits) this.player.addCredits(reward.credits);
       this.s.done.push(q.id);
-      this.s.active = null; this.s.step = 0; this.s.kill = 0;
+      this.s.active = null; this.s.step = 0; this.s.kill = 0; this.s.mine = 0; this.s.sell = 0;
       this.player.save();
       return { advanced: true, completed: true, quest: q, reward };
     }

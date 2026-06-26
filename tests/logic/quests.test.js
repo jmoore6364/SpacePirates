@@ -141,3 +141,48 @@ test('Deep Cut (third arc) runs end to end via mine + travel', () => {
   assert.equal(p.credits, before + questById('deep-cut').reward.credits);
   assert.equal(log.isDone('deep-cut'), true);
 });
+
+function finishDeepCut(log) {
+  log.talk('brak', 'the-maw'); log.onMine(15);
+  log.onArrive('neon-haven'); log.onArrive('the-maw');
+  log.talk('brak', 'the-maw');
+}
+
+test('fourth arc (Spice Run) is gated behind Deep Cut', () => {
+  const log = fresh();
+  assert.equal(log.isAvailable('spice-run'), false);
+  assert.equal(log.npcHere('sable', 'dust-reach'), false);
+  finishMawJob(log); finishColdTrail(log); finishDeepCut(log);
+  assert.equal(log.isAvailable('spice-run'), true);
+  assert.equal(log.npcHere('sable', 'dust-reach'), true);
+});
+
+test('sell step only counts the right commodity at the right world', () => {
+  const log = fresh();
+  finishMawJob(log); finishColdTrail(log); finishDeepCut(log);
+  log.talk('sable', 'dust-reach');        // -> travel the-maw
+  log.onArrive('the-maw');                // -> sell step
+  assert.equal(log.currentStep().type, 'sell');
+  assert.equal(log.onSell('ore', 5, 'neon-haven').advanced, false);   // wrong commodity
+  assert.equal(log.onSell('spice', 3, 'the-maw').advanced, false);    // wrong world
+  assert.equal(log.onSell('spice', 3, 'neon-haven').progress, true);  // counts
+  assert.equal(log.objective().includes('3/8'), true);
+  const r = log.onSell('spice', 5, 'neon-haven');                     // crosses 8
+  assert.equal(r.advanced, true);
+  assert.equal(log.currentStep().type, 'talk');
+});
+
+test('The Spice Run runs end to end and pays out', () => {
+  const p = new Player(null);
+  const log = new QuestLog(p);
+  finishMawJob(log); finishColdTrail(log); finishDeepCut(log);
+  const before = p.credits;
+  log.talk('sable', 'dust-reach');        // start + advance intro -> travel
+  assert.equal(log.active.id, 'spice-run');
+  log.onArrive('the-maw');                // -> sell step
+  log.onSell('spice', 8, 'neon-haven');   // -> final talk
+  const r = log.talk('sable', 'dust-reach');
+  assert.equal(r.completed, true);
+  assert.equal(p.credits, before + questById('spice-run').reward.credits);
+  assert.equal(log.isDone('spice-run'), true);
+});

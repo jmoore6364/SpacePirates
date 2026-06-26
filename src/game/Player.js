@@ -23,7 +23,7 @@ const DEFAULTS = () => ({
   completed: [],
   missionsActive: [], // accepted delivery/bounty missions (persisted)
   cargo: {}, // { commodityId: qty }
-  questState: { active: null, step: 0, kill: 0, done: [] },
+  questState: { active: null, step: 0, kill: 0, mine: 0, sell: 0, done: [] },
   xp: 0,
   xpLevel: 1,
   skillPoints: 0,

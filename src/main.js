@@ -796,6 +796,12 @@ input.mouseFlight = settings.mouseFlight;
 shop.onChange = () => audio.blip();
 missionBoard.onChange = () => audio.blip();
 market.onChange = () => audio.blip();
+// selling can advance a quest 'sell' step (e.g. fencing spice on Neon Haven)
+market.onSell = (commodityId, qty, worldId) => {
+  const r = questLog.onSell(commodityId, qty, worldId);
+  if (r.completed) { awardXp(120); player.addRep(worldId, 10); toast(`Quest complete: ${r.quest.name} — +${r.reward.credits} cr`); }
+  else if (r.advanced) toast(`Objective: ${questLog.objective()}`);
+};
 
 // touch controls (shown on touch devices)
 const touch = new TouchControls(input, { getMode: () => scenes.mode });
