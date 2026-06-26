@@ -22,6 +22,15 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **3D ship models (POC)** — real low-poly models replace the procedural player ship.
+  Assets: Kenney "Space Kit" GLBs (CC0, license in `src/assets/models/KENNEY-LICENSE.txt`).
+  `src/entities/Models.js` preloads + normalizes (center/scale/yaw 180° to face -Z) and
+  hands out clones; `Ship.js` uses a clone per hull when ready (corsair→speederA,
+  interceptor→racer, freighter→cargoA, gunship→speederD) and falls back to the
+  procedural mesh otherwise. Engine glow + light are re-attached at the rear so the
+  throttle pulse still works. `main.js` calls `preloadShipModels()` then live-swaps
+  the backdrop ship via `ship.refreshVisual()`. **Enemies/stations are still procedural.**
+  GLBs imported with Vite `?url` (base-correct on the Pages subpath); three chunk +~40 KB.
 - **4th quest "The Spice Run" + `sell` step type** — new data-driven step
   `{ type:'sell', commodity, count, world? }` advanced by `QuestLog.onSell(id, qty,
   worldId)`. Wired from the Market panel (`market.onSell` → host in `main.js`).

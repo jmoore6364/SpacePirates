@@ -3,6 +3,7 @@ import { GameLoop } from './core/GameLoop.js';
 import { SceneManager, Mode } from './core/GameState.js';
 import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
+import { preloadShipModels } from './entities/Models.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
 import { StarMap } from './ui/StarMap.js';
 import { Shop, MissionBoard, Market, Dialogue, Skills, Shipyard, Armory } from './ui/Panels.js';
@@ -809,6 +810,9 @@ touch.autoEnable();
 
 enterSpace();        // live backdrop behind the title
 loop.start();
+
+// load the 3D ship models in the background; swap the live ship in once ready
+preloadShipModels().then(() => { if (space && space.ship) space.ship.refreshVisual(); });
 
 // title screen gates the start
 const titleScreen = new TitleScreen({

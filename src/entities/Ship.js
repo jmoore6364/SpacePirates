@@ -4,13 +4,15 @@
 // so it feels arcade (fun-first), not Newtonian-floaty.
 import { THREE } from '../renderer/Renderer.js';
 import { clamp } from '../util/math.js';
+import { shipModel } from './Models.js';
 
 const FWD = new THREE.Vector3(0, 0, -1);
 
 export class Ship {
   constructor(hullId = 'corsair') {
     this.hullId = hullId;
-    this.object = buildShipMesh(hullId);
+    this.object = new THREE.Group();   // physics/transform; visual is a swappable child
+    this._buildVisual();
 
     this.velocity = new THREE.Vector3();
     this.throttle = 0;            // 0..1
@@ -36,6 +38,19 @@ export class Ship {
   forward(out = new THREE.Vector3()) {
     return out.copy(FWD).applyQuaternion(this.object.quaternion);
   }
+
+  // (Re)build the visual child — a loaded 3D model if one is ready, else procedural.
+  // Keeps the engine-glow reference on `object.userData` so the throttle pulse works.
+  _buildVisual() {
+    if (this._visual) { this.object.remove(this._visual); disposeVisual(this._visual); }
+    const model = shipModel(this.hullId);
+    this._visual = model ? decorateModel(this.hullId, model) : buildProceduralVisual(this.hullId);
+    this.object.add(this._visual);
+    this.object.userData.engine = this._visual.userData.engine;
+  }
+
+  // Swap to a model once async loading finishes (called on the live backdrop ship).
+  refreshVisual() { this._buildVisual(); }
 
   // controls: { pitch, yaw, roll } in [-1,1], throttleDelta in [-1,1]
   update(dt, controls) {
@@ -81,9 +96,34 @@ const HULL_LOOK = {
   gunship:     { body: 0x8a6e74, accent: 0xff5b6e, engine: 0xff8a3c, wing: 5.0, scale: 1.35 },
 };
 
-function buildShipMesh(hullId = 'corsair') {
+// Wrap a loaded model and bolt on the same engine glow + light the procedural ship
+// has, placed at the rear so the throttle pulse reads. The model faces -Z already.
+function decorateModel(hullId, modelGroup) {
   const L = HULL_LOOK[hullId] || HULL_LOOK.corsair;
   const group = new THREE.Group();
+  group.add(modelGroup);
+
+  const box = new THREE.Box3().setFromObject(modelGroup);
+  const cx = (box.min.x + box.max.x) / 2;
+  const cy = box.min.y + (box.max.y - box.min.y) * 0.45;
+  const rearZ = box.max.z; // nose is -Z, so the tail sits at +Z
+
+  const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.5, 0.4, 12), new THREE.MeshBasicMaterial({ color: L.engine }));
+  engine.rotation.x = Math.PI / 2;
+  engine.position.set(cx, cy, rearZ + 0.1);
+  group.add(engine);
+  group.userData.engine = engine;
+
+  const engineLight = new THREE.PointLight(L.engine, 2, 12);
+  engineLight.position.set(cx, cy, rearZ + 0.4);
+  group.add(engineLight);
+  return group;
+}
+
+function buildProceduralVisual(hullId = 'corsair') {
+  const L = HULL_LOOK[hullId] || HULL_LOOK.corsair;
+  const group = new THREE.Group();
+  group.userData.procedural = true; // owns unique buffers — safe to dispose wholesale
 
   const hullMat = new THREE.MeshStandardMaterial({ color: L.body, roughness: 0.5, metalness: 0.6 });
   const accentMat = new THREE.MeshStandardMaterial({ color: L.accent, roughness: 0.4, metalness: 0.3, emissive: 0x220a18, emissiveIntensity: 1 });
@@ -134,4 +174,20 @@ function buildShipMesh(hullId = 'corsair') {
 
   group.scale.setScalar(L.scale);
   return group;
+}
+
+// Free only what the Ship owns when swapping visuals. Procedural meshes have unique
+// buffers (dispose the whole tree). Model visuals are clones that SHARE the cached
+// template's geometry/materials, so we free just the engine glow we created fresh.
+function disposeVisual(v) {
+  if (v.userData.procedural) { disposeTree(v); return; }
+  const eng = v.userData.engine;
+  if (eng) { eng.geometry && eng.geometry.dispose(); eng.material && eng.material.dispose(); }
+}
+
+function disposeTree(obj) {
+  obj.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose && m.dispose());
+  });
 }
