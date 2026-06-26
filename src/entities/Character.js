@@ -30,7 +30,11 @@ export class Character {
       this.object.add(m.object);
       this.mixer = new THREE.AnimationMixer(m.object);
       this.actions = {};
-      for (const clip of m.animations) this.actions[clip.name] = this.mixer.clipAction(clip);
+      // normalize clip names across packs: "HumanArmature|Man_Idle" / "idle" → "idle"
+      for (const clip of m.animations) {
+        const key = clip.name.toLowerCase().replace(/^.*\|/, '').replace(/^(man_|woman_|character_)/, '');
+        this.actions[key] = this.mixer.clipAction(clip);
+      }
       this._bobAmp = 0; // the walk/idle clips provide the motion
       this._setClip('idle');
     } else {

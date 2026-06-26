@@ -4,12 +4,13 @@
 // the procedural mesh, so the game still runs if loading fails or hasn't finished.
 import { THREE } from '../renderer/Renderer.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import speederA from '../assets/models/craft_speederA.glb?url';
 import racer from '../assets/models/craft_racer.glb?url';
 import cargoA from '../assets/models/craft_cargoA.glb?url';
 import speederD from '../assets/models/craft_speederD.glb?url';
-import characterA from '../assets/models/character-a.glb?url';
+import characterMan from '../assets/models/quaternius-man.glb?url';
 
 // hull id → { url, size: target longest-axis length in world units }
 const SHIP_MODELS = {
@@ -23,10 +24,10 @@ const SHIP_MODELS = {
 // normalized model is yawed 180° to point the nose the right way.
 const MODEL_YAW = Math.PI;
 
-// On-foot character (Kenney "Blocky Characters", CC0). Node-animated (no skinning),
-// ~3.4 units tall to match the procedural figure, facing +Z in local space.
+// On-foot character (Quaternius "Animated Men", CC0). Skinned + animated; converted
+// from FBX → GLB and quantized. ~3.4 units tall to match the procedural figure.
 const CHAR_HEIGHT = 3.4;
-const CHAR_YAW = 0; // model already faces +Z, matching our characters' forward
+const CHAR_YAW = 0; // tune if the model faces the wrong way
 
 const _cache = new Map(); // hullId → normalized THREE.Object3D (template to clone)
 let _charTpl = null;      // { scene, animations } template for the player character
@@ -59,8 +60,17 @@ export function preloadModels() {
   const ships = Object.entries(SHIP_MODELS).map(([hull, def]) =>
     load(def.url).then((gltf) => { _cache.set(hull, normalize(gltf.scene, def.size)); })
       .catch(() => { /* leave this hull on the procedural fallback */ }));
-  const character = load(characterA)
-    .then((gltf) => { _charTpl = { scene: gltf.scene, animations: gltf.animations }; })
+  const character = load(characterMan)
+    .then((gltf) => {
+      // self-illuminate a touch so the player reads on dark worlds (no carried light)
+      gltf.scene.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (m.color && m.emissive) { m.emissive.copy(m.color); m.emissiveIntensity = 0.4; }
+        }
+      });
+      _charTpl = { scene: gltf.scene, animations: gltf.animations };
+    })
     .catch(() => { /* leave the on-foot player on the procedural figure */ });
   _loadPromise = Promise.all([...ships, character]).then(() => { _loaded = true; });
   return _loadPromise;
@@ -75,12 +85,14 @@ export function shipModel(hullId) {
 }
 
 // A fresh, normalized clone of the player character with its animation clips, or
-// null to fall back to the procedural figure. The clip tracks bind by node name, so
-// a plain deep clone animates correctly (these models have no skinned skeleton).
+// null to fall back to the procedural figure. SkeletonUtils.clone is required so the
+// skinned mesh rebinds to the cloned skeleton; mixer tracks bind by bone name.
 export function characterModel() {
   if (!_charTpl) return null;
-  const inner = _charTpl.scene.clone(true);
-  // recenter feet to y=0 and center on x/z
+  const inner = skeletonClone(_charTpl.scene); // SkeletonUtils: correct for skinned meshes
+  // recenter feet to y=0 and center on x/z (force world matrices first so a skinned
+  // mesh measures in its real bind pose, not an un-updated identity transform)
+  inner.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(inner);
   const span = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());

@@ -22,16 +22,26 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
-- **Animated on-foot character (POC)** — the main character is now an animated 3D
-  model (Kenney "Blocky Characters", CC0, node-animated — no skinning). `Models.js`
-  loads `character-a.glb`, `characterModel()` returns a normalized clone (~3.4 tall,
-  feet at y=0, faces +Z via a yaw pivot) + its 27 clips. `Character.js` builds the
-  visual as a swappable child, runs an `AnimationMixer`, and crossfades idle⇄walk by
-  `moving`; `_bobAmp` zeroed when animated (clip provides the motion). Falls back to
-  the procedural figure if loading fails. **NOTE:** the GLB referenced an *external*
-  texture (`Textures/texture-a.png`) which broke under Vite's `?url` hashing — fixed
-  by embedding it with `npx @gltf-transform/cli copy` so the GLB is self-contained
-  (do the same for any future Blocky Characters). Crowds/enforcers still procedural.
+- **Animated on-foot character (POC)** — the main character is an animated 3D model:
+  **Quaternius "Animated Men"** (CC0, skinned + skeletal animation; 11 clips incl.
+  idle/walk/run/punch/death). `Models.js` loads `quaternius-man.glb`, `characterModel()`
+  returns a **`SkeletonUtils.clone`** (required for skinned meshes) normalized to
+  ~3.4 tall / feet at y=0 via a yaw pivot. `Character.js` builds it as a swappable
+  child, runs an `AnimationMixer`, crossfades idle⇄walk by `moving` (clip names
+  normalized so `HumanArmature|Man_Idle` → `idle`); `_bobAmp` zeroed when animated.
+  Falls back to the procedural figure if loading fails.
+  **Asset pipeline / lessons (important for adding more characters):**
+  - Quaternius ships **FBX only** (no GLB). Convert with the `fbx2gltf` npm pkg
+    (JS API: `require('fbx2gltf')(in,out,['--binary'])`; the `npx` bin name doesn't
+    resolve). Do **not** pass `--khr-materials-unlit` (kills the soft shading).
+  - Shrink with `@gltf-transform/cli resample`+`prune` (1.1 MB → ~950 KB). **Avoid
+    `quantize`** on these skinned meshes — it made the character render invisible.
+  - Materials come in dark on night maps; we lift `emissive = color, emissiveIntensity
+    0.4` at load so the player reads everywhere.
+  - Downloaded the Drive-folder pack via `python -m gdown --folder <url>`.
+  - (Earlier tried Kenney "Blocky Characters" — works too but Minecraft-blocky, and
+    its GLB used an *external* texture needing `gltf-transform copy` to embed.)
+  Crowds/enforcers still procedural.
 - **3D ship models (POC)** — real low-poly models replace the procedural player ship.
   Assets: Kenney "Space Kit" GLBs (CC0, license in `src/assets/models/KENNEY-LICENSE.txt`).
   `src/entities/Models.js` preloads + normalizes (center/scale/yaw 180° to face -Z) and
