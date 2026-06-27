@@ -4,6 +4,7 @@
 import { THREE } from '../renderer/Renderer.js';
 import { clamp, lerp } from '../util/math.js';
 import { characterModel } from './Models.js';
+import { AnimatedActor } from './AnimatedActor.js';
 
 export class Character {
   constructor() {
@@ -17,7 +18,7 @@ export class Character {
     this.moving = false;
     this.groundSampler = null; // (x,z) => terrain height; set by the scene
 
-    this.mixer = null; this.actions = null; this.current = null;
+    this.actor = null;
     this._buildVisual();
   }
 
@@ -25,31 +26,16 @@ export class Character {
 
   // Use the animated model if it's loaded, otherwise the procedural figure.
   _buildVisual() {
-    const m = characterModel();
+    const m = characterModel('man');
     if (m) {
+      this.actor = new AnimatedActor(m);
       this.object.add(m.object);
-      this.mixer = new THREE.AnimationMixer(m.object);
-      this.actions = {};
-      // normalize clip names across packs: "HumanArmature|Man_Idle" / "idle" → "idle"
-      for (const clip of m.animations) {
-        const key = clip.name.toLowerCase().replace(/^.*\|/, '').replace(/^(man_|woman_|character_)/, '');
-        this.actions[key] = this.mixer.clipAction(clip);
-      }
       this._bobAmp = 0; // the walk/idle clips provide the motion
-      this._setClip('idle');
+      this.actor.play('idle');
     } else {
       this.object.add(buildFigure());
     }
     this.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  }
-
-  // Crossfade to a named animation clip (idle/walk/...). No-op if already active.
-  _setClip(name) {
-    if (!this.actions || this.current === name || !this.actions[name]) return;
-    const prev = this.current && this.actions[this.current];
-    if (prev) prev.fadeOut(0.18);
-    this.actions[name].reset().fadeIn(0.18).play();
-    this.current = name;
   }
 
   // 3rd-person aim controls: `yaw` is the look/heading the character faces (set by
@@ -84,9 +70,9 @@ export class Character {
     this.position.y = groundY + Math.abs(Math.sin(this._bob)) * this._bobAmp;
 
     // drive the animation: walk while moving, idle when still
-    if (this.mixer) {
-      this._setClip(this.moving ? 'walk' : 'idle');
-      this.mixer.update(dt);
+    if (this.actor) {
+      this.actor.play(this.moving ? 'walk' : 'idle');
+      this.actor.update(dt);
     }
   }
 

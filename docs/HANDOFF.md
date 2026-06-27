@@ -22,6 +22,21 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Animated crowd + enemies (3D)** — crowd civilians and on-foot enforcers are now
+  animated 3D models (Quaternius, CC0), via a shared **`AnimatedActor`** helper
+  (`src/entities/AnimatedActor.js`: mixer + canonical clip-name map so
+  `Armature|Robot_Walking`→`walk` + crossfade). `Models.js` now loads man/woman/alien/
+  robot and `characterModel(kind, {cloneMaterials})` returns a `SkeletonUtils.clone`.
+  - **Crowd** (`Crowd.js`): man/woman/alien variety (`CROWD_KINDS`), idle/walk (walk
+    when fleeing); procedural civilian fallback; dispose skips shared template buffers.
+  - **Enforcers** (`GroundCombat.js`): animated **robot**, `cloneMaterials:true` so the
+    archetype tint (grunt red / heavy orange / sniper purple / captain gold) and the
+    red hit-flash are per-instance; scaled by `type.scale`; idle/walk; kill frees only
+    cloned materials (geometry is shared).
+  - **Node-safety:** model asset URLs use `new URL('…glb', import.meta.url)` (not
+    `?url`), so logic tests importing `GroundCombat`→`Models` still run under Node.
+  - Bundle: 4 character GLBs (~2.8 MB total, mesh-dominated). Future: simplify/strip to
+    shrink; quantize is OFF (it made skinned meshes render invisible).
 - **Animated on-foot character (POC)** — the main character is an animated 3D model:
   **Quaternius "Animated Men"** (CC0, skinned + skeletal animation; 11 clips incl.
   idle/walk/run/punch/death). `Models.js` loads `quaternius-man.glb`, `characterModel()`

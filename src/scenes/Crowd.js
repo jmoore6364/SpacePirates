@@ -3,6 +3,8 @@
 // scatter away from the player when a firefight breaks out. Cheap + renderer-light
 // so it stays inside the SurfaceScene FPS budget. See issue #15.
 import { THREE } from '../renderer/Renderer.js';
+import { characterModel, CROWD_KINDS } from '../entities/Models.js';
+import { AnimatedActor } from '../entities/AnimatedActor.js';
 
 const BARK_LINES = [
   'Keep your head down out here.',
@@ -33,9 +35,12 @@ export class Crowd {
   }
 
   _spawn(i) {
-    const color = this.palette[i % this.palette.length];
     const scale = 0.9 + (i % 3) * 0.12; // body-type variety
-    const group = makeCivilian(color);
+    // animated 3D civilian (man/woman/alien), or the procedural figure as a fallback
+    const m = characterModel(CROWD_KINDS[i % CROWD_KINDS.length]);
+    let group, actor = null;
+    if (m) { actor = new AnimatedActor(m); group = m.object; actor.play('idle'); }
+    else { group = makeCivilian(this.palette[i % this.palette.length]); }
     group.scale.setScalar(scale);
     const start = this._wanderPoint();
     group.position.copy(start);
@@ -43,7 +48,7 @@ export class Crowd {
     group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(group);
     this.people.push({
-      group,
+      group, actor,
       target: this._wanderPoint(),
       speed: 3.4 + Math.random() * 1.8,
       bob: Math.random() * Math.PI * 2,
@@ -74,6 +79,7 @@ export class Crowd {
     for (const p of this.people) {
       const g = p.group;
       p.repath -= dt;
+      let moved = false;
 
       if (alarmed && playerPos) {
         // flee: aim for a far point directly away from the player
@@ -93,21 +99,25 @@ export class Crowd {
       if (dist < 1.5 || p.repath <= 0) {
         p.target = this._wanderPoint();
         p.repath = 3 + Math.random() * 4;
-        continue;
+      } else {
+        const spd = (alarmed ? 2.4 : 1) * p.speed;
+        const nx = g.position.x + (dx / dist) * spd * dt;
+        const nz = g.position.z + (dz / dist) * spd * dt;
+        if (this._inBuilding(nx, nz)) {
+          p.target = this._wanderPoint(); // blocked — choose a new route
+        } else {
+          g.position.x = nx;
+          g.position.z = nz;
+          g.rotation.y = Math.atan2(dx, dz);
+          p.bob += dt * 9;
+          moved = true;
+        }
       }
 
-      const spd = (alarmed ? 2.4 : 1) * p.speed;
-      const nx = g.position.x + (dx / dist) * spd * dt;
-      const nz = g.position.z + (dz / dist) * spd * dt;
-      if (this._inBuilding(nx, nz)) {
-        p.target = this._wanderPoint(); // blocked — choose a new route
-        continue;
-      }
-      g.position.x = nx;
-      g.position.z = nz;
-      g.rotation.y = Math.atan2(dx, dz);
-      p.bob += dt * 9;
-      g.position.y = this.groundY(nx, nz) + Math.abs(Math.sin(p.bob)) * 0.12;
+      // animated figures get their motion from the clip; procedural ones bob
+      const gy = this.groundY(g.position.x, g.position.z);
+      g.position.y = p.actor ? gy : gy + Math.abs(Math.sin(p.bob)) * 0.12;
+      if (p.actor) { p.actor.play(moved || alarmed ? 'walk' : 'idle'); p.actor.update(dt); }
     }
 
     // occasional ambient bark from a civilian near the player
@@ -125,7 +135,8 @@ export class Crowd {
   dispose() {
     for (const p of this.people) {
       this.scene.remove(p.group);
-      p.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      // model clones share the cached template's buffers — only free procedural ones
+      if (!p.actor) p.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     }
     this.people = [];
   }

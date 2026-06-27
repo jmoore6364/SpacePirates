@@ -5,6 +5,8 @@
 import { THREE } from '../renderer/Renderer.js';
 import { player } from '../game/Player.js';
 import { clamp, segDistSq } from '../util/math.js';
+import { characterModel } from '../entities/Models.js';
+import { AnimatedActor } from '../entities/AnimatedActor.js';
 
 const BOLT_SPEED = 240;
 const BOLT_LIFE = 1.4;
@@ -80,19 +82,38 @@ export class GroundCombat {
 
   spawnEnforcer(pos, typeKey = 'grunt') {
     const type = ENFORCER_TYPES[typeKey] || ENFORCER_TYPES.grunt;
-    const mesh = buildEnforcer(type);
+    // animated robot enforcer (own materials so the tint + hit-flash are per-instance),
+    // or the procedural figure as a fallback
+    const m = characterModel('robot', { cloneMaterials: true });
+    const mats = [];
+    let mesh, actor = null;
+    if (m) {
+      actor = new AnimatedActor(m);
+      mesh = m.object;
+      mesh.scale.multiplyScalar(type.scale); // archetype size on top of the normalized height
+      mesh.traverse((o) => {
+        if (o.isMesh) o.castShadow = true;
+        if (!o.isMesh || !o.material) return;
+        for (const mm of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (!mm.emissive) continue;
+          mm.emissive.setHex(type.color); mm.emissiveIntensity = 0.5; // archetype colour glow
+          mats.push({ m: mm, baseHex: type.color, baseI: 0.5 });
+        }
+      });
+      actor.play('idle');
+    } else {
+      mesh = buildEnforcer(type);
+      mesh.traverse((o) => {
+        if (o.isMesh) o.castShadow = true;
+        if (o.isMesh && o.material && o.material.emissive) {
+          mats.push({ m: o.material, baseHex: o.material.emissive.getHex(), baseI: o.material.emissiveIntensity });
+        }
+      });
+    }
     mesh.position.copy(pos);
     mesh.position.y = this.groundY(pos.x, pos.z);
-    // record materials (built fresh per enforcer) so we can flash them red on hit
-    const mats = [];
-    mesh.traverse((o) => {
-      if (o.isMesh) o.castShadow = true;
-      if (o.isMesh && o.material && o.material.emissive) {
-        mats.push({ m: o.material, baseHex: o.material.emissive.getHex(), baseI: o.material.emissiveIntensity });
-      }
-    });
     this.scene.add(mesh);
-    const e = { mesh, type, hp: type.hp, maxHp: type.hp, cd: 1 + Math.random() * 1.5, mats, flash: 0, isBoss: !!type.boss };
+    const e = { mesh, actor, type, hp: type.hp, maxHp: type.hp, cd: 1 + Math.random() * 1.5, mats, flash: 0, isBoss: !!type.boss };
     this.enemies.push(e);
     if (type.boss) this.captain = e;
     return e;
@@ -199,10 +220,12 @@ export class GroundCombat {
       const dist = to.length();
       to.normalize();
       const ideal = e.type.ideal;
-      if (dist > ideal + 2) e.mesh.position.addScaledVector(to, e.type.speed * dt);
-      else if (dist < ideal - 2) e.mesh.position.addScaledVector(to, -e.type.speed * 0.7 * dt);
+      let moved = false;
+      if (dist > ideal + 2) { e.mesh.position.addScaledVector(to, e.type.speed * dt); moved = true; }
+      else if (dist < ideal - 2) { e.mesh.position.addScaledVector(to, -e.type.speed * 0.7 * dt); moved = true; }
       e.mesh.position.y = this.groundY(e.mesh.position.x, e.mesh.position.z);
       e.mesh.rotation.y = Math.atan2(to.x, to.z);
+      if (e.actor) { e.actor.play(moved ? 'walk' : 'idle'); e.actor.update(dt); }
 
       // red hit-flash fades back to the enforcer's normal glow
       if (e.flash > 0) {
@@ -275,7 +298,10 @@ export class GroundCombat {
     const cy = this.groundY(e.mesh.position.x, e.mesh.position.z) + 1.6;
     this._spawnFx('kill', this._tmp.set(e.mesh.position.x, cy, e.mesh.position.z).clone(), e.isBoss ? 0xffd24a : 0xff5b6e);
     this.scene.remove(e.mesh);
-    e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    // model enforcers share the cached robot geometry — only free per-instance materials;
+    // procedural ones own their geometry
+    if (e.actor) { for (const mm of e.mats) mm.m.dispose && mm.m.dispose(); }
+    else e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.enemies = this.enemies.filter((x) => x !== e);
     const bounty = e.type?.bounty || 50;
     player.addCredits(bounty);
