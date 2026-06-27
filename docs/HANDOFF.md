@@ -22,6 +22,21 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Held weapons + enforcer death anim + fire feedback** —
+  - **Guns in hand:** `Gun.js` builds a low-poly weapon (shape/length/colour per
+    `Weapons.js` type); `AnimatedActor.attachToHand()` parents it to the rig's
+    right-hand bone. `Character.equipGun(id)` puts the player's current sidearm in
+    hand (rebuilt on Armory change via `armory.onChange` in `main.js`); firing kicks
+    it back (`gunRecoil()`). **Gotcha:** fbx2gltf strips dots from bone names
+    (`Palm.R`→`PalmR`), so `findBone` matches with separators removed.
+  - **Enforcer death:** `_killEnemy` plays the `death` clip once and lingers the body
+    in `_dying[]` (`_updateDying` advances the mixer, then frees it ~1.4 s later);
+    enforcers also play `punch` as an attack lunge when they fire (`_attackT` gate).
+  - Player firing uses a gun-recoil kick rather than a body clip (a punch at the
+    blaster's fire-rate looked wrong). Enforcers are NOT yet holding gun meshes.
+  - NOTE: couldn't get a clean harness screenshot of the held gun (camera framing);
+    `GUN_FIT` in `Character.js` (pos/euler/scale in the hand bone) may need eyeball
+    tuning from the live game.
 - **Animated crowd + enemies (3D)** — crowd civilians and on-foot enforcers are now
   animated 3D models (Quaternius, CC0), via a shared **`AnimatedActor`** helper
   (`src/entities/AnimatedActor.js`: mixer + canonical clip-name map so

@@ -38,4 +38,27 @@ export class AnimatedActor {
   }
 
   update(dt) { this.mixer.update(dt); }
+
+  // Find a node/bone by name within the model (first match). Matches loosely —
+  // FBX→GLB conversion strips dots (e.g. "Palm.R" becomes "PalmR"), so we compare
+  // with separators removed.
+  findBone(...names) {
+    const norm = (s) => s.toLowerCase().replace(/[._\s]/g, '');
+    const want = names.map(norm);
+    let hit = null;
+    this.object.traverse((o) => { if (!hit && o.name && want.includes(norm(o.name))) hit = o; });
+    return hit;
+  }
+
+  // Parent a mesh to the right-hand bone with a local fit (pos/euler/scale). Returns
+  // the mesh on success (so it animates with the hand), or null if no hand bone.
+  attachToHand(mesh, { pos = [0, 0, 0], euler = [0, 0, 0], scale = 1 } = {}) {
+    const bone = this.findBone('Palm.R', 'Hand.R', 'MiddleHand.R');
+    if (!bone) return null;
+    mesh.position.set(...pos);
+    mesh.rotation.set(...euler);
+    mesh.scale.setScalar(scale);
+    bone.add(mesh);
+    return mesh;
+  }
 }

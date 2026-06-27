@@ -43,6 +43,7 @@ export class GroundCombat {
     this.dr = armor.dr || 0; // fraction of incoming damage soaked by armor
     this.enemies = [];
     this.captain = null; // active Enforcer Captain mini-boss, or null
+    this._dying = [];    // enemies playing their death clip before removal
     this.bolts = [];
     this._fireCd = 0;
     this._hitGrace = 0;
@@ -133,6 +134,7 @@ export class GroundCombat {
     if (this.input && (this.input.firing ? this.input.firing() : this.input.isDown('KeyJ'))) this.fire();
 
     this._updateEnemies(dt);
+    this._updateDying(dt);
     this._updateBolts(dt);
     this._updateFx(dt);
     if (this._hitGrace > 4 && this.hp < this.maxHp) {
@@ -174,6 +176,7 @@ export class GroundCombat {
       this._spawnBolt(start, dir, false, dmg, life, w.speed, w.color);
     }
     this._spawnFx('muzzle', start, w.color);
+    if (this.character.gunRecoil) this.character.gunRecoil(); // kick the held weapon
     this.onEvent({ type: 'blaster' });
   }
 
@@ -225,7 +228,11 @@ export class GroundCombat {
       else if (dist < ideal - 2) { e.mesh.position.addScaledVector(to, -e.type.speed * 0.7 * dt); moved = true; }
       e.mesh.position.y = this.groundY(e.mesh.position.x, e.mesh.position.z);
       e.mesh.rotation.y = Math.atan2(to.x, to.z);
-      if (e.actor) { e.actor.play(moved ? 'walk' : 'idle'); e.actor.update(dt); }
+      if (e._attackT > 0) e._attackT -= dt;
+      if (e.actor) {
+        if (e._attackT <= 0) e.actor.play(moved ? 'walk' : 'idle'); // else hold the attack clip
+        e.actor.update(dt);
+      }
 
       // red hit-flash fades back to the enforcer's normal glow
       if (e.flash > 0) {
@@ -240,6 +247,7 @@ export class GroundCombat {
       e.cd -= dt;
       if (dist < 60 && e.cd <= 0) {
         e.cd = e.type.fireCd + Math.random();
+        if (e.actor && e.actor.has('punch')) { e.actor.play('punch', { once: true }); e._attackT = 0.5; } // attack lunge
         const pChest = this.groundY(p.x, p.z) + CHEST;
         const eChest = this.groundY(e.mesh.position.x, e.mesh.position.z) + CHEST;
         const dir = this._tmp2.copy(p).setY(pChest).sub(this._tmp.copy(e.mesh.position).setY(eChest)).normalize();
@@ -297,16 +305,33 @@ export class GroundCombat {
   _killEnemy(e) {
     const cy = this.groundY(e.mesh.position.x, e.mesh.position.z) + 1.6;
     this._spawnFx('kill', this._tmp.set(e.mesh.position.x, cy, e.mesh.position.z).clone(), e.isBoss ? 0xffd24a : 0xff5b6e);
-    this.scene.remove(e.mesh);
-    // model enforcers share the cached robot geometry — only free per-instance materials;
-    // procedural ones own their geometry
-    if (e.actor) { for (const mm of e.mats) mm.m.dispose && mm.m.dispose(); }
-    else e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.enemies = this.enemies.filter((x) => x !== e);
+    if (e.actor) {
+      // play the death clip, then clean up after it (mesh stays in the scene meanwhile)
+      e.actor.play('death', { once: true });
+      this._dying.push({ e, t: 1.4 });
+    } else {
+      this.scene.remove(e.mesh);
+      e.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    }
     const bounty = e.type?.bounty || 50;
     player.addCredits(bounty);
     if (e.isBoss) { this.captain = null; this.onEvent({ type: 'captainDown', bounty }); }
     else this.onEvent({ type: 'enforcerDown', bounty });
+  }
+
+  // Advance enemies mid-death-animation, then remove them when the clip has played.
+  _updateDying(dt) {
+    for (let i = this._dying.length - 1; i >= 0; i--) {
+      const d = this._dying[i];
+      d.e.actor.update(dt);
+      d.t -= dt;
+      if (d.t <= 0) {
+        this.scene.remove(d.e.mesh);
+        for (const mm of d.e.mats) mm.m.dispose && mm.m.dispose(); // free cloned materials (geometry is shared)
+        this._dying.splice(i, 1);
+      }
+    }
   }
 
   _damagePlayer(dmg) {
@@ -322,7 +347,9 @@ export class GroundCombat {
     this.hp = this.maxHp;
     this.character.position.copy(this.spawnPoint);
     for (const e of this.enemies) this.scene.remove(e.mesh);
+    for (const d of this._dying) this.scene.remove(d.e.mesh);
     this.enemies = [];
+    this._dying = [];
     this.captain = null;
     this.onEvent({ type: 'playerDown', penalty });
   }

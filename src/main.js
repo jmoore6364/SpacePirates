@@ -90,7 +90,7 @@ skills.onChange = () => audio.blip();
 const shipyard = new Shipyard({ onClose: closePanel });
 shipyard.onChange = () => audio.blip();
 const armory = new Armory({ onClose: closePanel });
-armory.onChange = () => audio.blip();
+armory.onChange = () => { audio.blip(); if (surface && surface.character.equipGun) surface.character.equipGun(player.sidearm); };
 
 // Award XP and surface level-ups.
 function awardXp(n) {

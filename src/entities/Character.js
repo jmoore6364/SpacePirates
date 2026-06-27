@@ -5,6 +5,11 @@ import { THREE } from '../renderer/Renderer.js';
 import { clamp, lerp } from '../util/math.js';
 import { characterModel } from './Models.js';
 import { AnimatedActor } from './AnimatedActor.js';
+import { buildGun } from './Gun.js';
+import { player } from '../game/Player.js';
+
+// Where the held gun sits in the right-hand bone's local space (tuned to the rig).
+const GUN_FIT = { pos: [0.02, 0.0, 0.06], euler: [Math.PI / 2, 0, 0], scale: 1 };
 
 export class Character {
   constructor() {
@@ -32,11 +37,23 @@ export class Character {
       this.object.add(m.object);
       this._bobAmp = 0; // the walk/idle clips provide the motion
       this.actor.play('idle');
+      this.equipGun(player.groundWeapon().id);
     } else {
       this.object.add(buildFigure());
     }
     this.object.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   }
+
+  // (Re)build the held weapon mesh in the character's right hand.
+  equipGun(weaponId) {
+    if (!this.actor) return;
+    if (this._gun && this._gun.parent) this._gun.parent.remove(this._gun);
+    this._gun = this.actor.attachToHand(buildGun(weaponId), GUN_FIT);
+    if (this._gun) { this._gunHome = this._gun.position.clone(); this._recoil = 0; }
+  }
+
+  // Brief weapon kick on firing (decays in update) — reads as a shot without a clip.
+  gunRecoil() { if (this._gun) this._recoil = 0.1; }
 
   // 3rd-person aim controls: `yaw` is the look/heading the character faces (set by
   // the scene from mouse/keys/touch turning); `forward` walks along that facing,
@@ -73,6 +90,12 @@ export class Character {
     if (this.actor) {
       this.actor.play(this.moving ? 'walk' : 'idle');
       this.actor.update(dt);
+    }
+
+    // weapon recoil kick decays back to the rest pose
+    if (this._gun && this._recoil > 0) {
+      this._recoil = Math.max(0, this._recoil - dt);
+      this._gun.position.copy(this._gunHome).z -= (this._recoil / 0.1) * 0.06;
     }
   }
 
