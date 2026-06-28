@@ -63,6 +63,13 @@ export class Character {
   // Brief weapon kick on firing (decays in update) — reads as a shot without a clip.
   gunRecoil() { if (this._gun) this._recoil = 0.1; }
 
+  // World position of the held gun's muzzle tip (so bolts spawn from the barrel), or
+  // null when there's no gun mesh (procedural-figure fallback).
+  muzzleWorld(out = new THREE.Vector3()) {
+    const tip = this._gun && this._gun.userData.muzzle;
+    return tip ? tip.getWorldPosition(out) : null;
+  }
+
   // 3rd-person aim controls: `yaw` is the look/heading the character faces (set by
   // the scene from mouse/keys/touch turning); `forward` walks along that facing,
   // `strafe` steps sideways. The character always faces `yaw` so it aims/shoots

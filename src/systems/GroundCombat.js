@@ -47,6 +47,7 @@ export class GroundCombat {
     this.bolts = [];
     this._fireCd = 0;
     this._hitGrace = 0;
+    this._muz = new THREE.Vector3(); // held-gun muzzle world position (reused per shot)
     this._tmp = new THREE.Vector3();
     this._tmp2 = new THREE.Vector3();
     this._tmp3 = new THREE.Vector3();
@@ -148,7 +149,9 @@ export class GroundCombat {
     this._fireCd = w.cd;
     const dmg = player.sidearmDamage();
     const cp = this.character.position;
-    const muzzle = this._tmp.set(cp.x, this.groundY(cp.x, cp.z) + CHEST, cp.z);
+    // fire from the held gun's muzzle if present, else the chest (procedural fallback)
+    const gm = this.character.muzzleWorld ? this.character.muzzleWorld(this._muz) : null;
+    const muzzle = gm || this._tmp.set(cp.x, this.groundY(cp.x, cp.z) + CHEST, cp.z);
 
     // Aim at the exact world point under the screen-center reticle: cast the camera's
     // view ray against enemies, buildings and the ground, then send the bolt from the
@@ -167,7 +170,8 @@ export class GroundCombat {
     const toTarget = target.sub(muzzle);
     const reach = Math.max(2, toTarget.length());
     const aim = toTarget.multiplyScalar(1 / reach); // normalized aim direction
-    const start = muzzle.clone().addScaledVector(aim, 1.4);
+    // start at the gun muzzle exactly; from the chest, push forward so it clears the body
+    const start = gm ? muzzle.clone() : muzzle.clone().addScaledVector(aim, 1.4);
 
     // one bolt, or a spread of pellets for scatter-type weapons
     for (let k = 0; k < (w.pellets || 1); k++) {
