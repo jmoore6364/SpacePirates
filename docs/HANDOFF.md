@@ -22,6 +22,15 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **City visual pass** — brighter + nicer surface cities (all in-engine, no new assets):
+  - *Lighting:* `SurfaceScene` hemisphere/ambient/key boosted with floors, added a cool
+    fill light, lifted the `TIME_PHASES` night, pushed fog back ×1.7 + lifted background.
+  - *Buildings:* `city.js` now skins towers with a canvas **window texture** (cached per
+    accent, cloned per building, density scales with size) via `windowMaterial()`;
+    emissive windows glow. Shape variety: ~45% get a setback tower, ~55% an antenna,
+    all get a rooftop beacon.
+  - *Landscape:* `scatterProps()` scatters low-poly rocks + glowing flora/pylons across
+    the terrain past the streets.
 - **Held weapons + enforcer death anim + fire feedback** —
   - **Guns in hand:** `Gun.js` builds a low-poly weapon (shape/length/colour per
     `Weapons.js` type); `AnimatedActor.attachToHand()` parents it to the rig's

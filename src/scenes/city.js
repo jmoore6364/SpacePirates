@@ -80,9 +80,10 @@ export function buildCity(world) {
   padRing.position.y = 0.45;
   group.add(padRing);
 
-  // buildings on a grid, leaving streets and a clear plaza around the pad
-  const buildingMat = new THREE.MeshStandardMaterial({ color: 0x252b3a, roughness: 0.8, metalness: 0.25 });
-  let lightBudget = 14; // cap real lights for perf; rest are emissive only
+  // buildings on a grid: window-lit towers with shape variety, leaving streets and a
+  // clear plaza around the pad
+  let lightBudget = 16; // cap real lights for perf; rest are emissive only
+  const antMat = new THREE.MeshStandardMaterial({ color: 0x556070, roughness: 0.4, metalness: 0.6 });
 
   const step = 26;
   for (let gx = -3; gx <= 3; gx++) {
@@ -90,14 +91,15 @@ export function buildCity(world) {
       const cx = gx * step + (rng() - 0.5) * 6;
       const cz = gz * step + (rng() - 0.5) * 6;
       if (Math.hypot(cx, cz) < 20) continue; // keep plaza clear around pad
-      if (rng() < 0.12) continue;            // some empty lots
+      if (rng() < 0.1) continue;             // some empty lots
 
-      const w = 6 + rng() * 8;
-      const d = 6 + rng() * 8;
-      const h = 8 + rng() * 38;
+      const w = 6 + rng() * 9;
+      const d = 6 + rng() * 9;
+      const h = 10 + rng() * 40;
       const bottom = heightAt(cx, cz) - 2; // sit on (sink slightly into) the terrain
+      const accent = accentHexes[(gx + gz + 8) % accentHexes.length];
 
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), windowMaterial(accent, w, h));
       b.position.set(cx, bottom + h / 2, cz);
       b.castShadow = true; b.receiveShadow = true;
       group.add(b);
@@ -106,30 +108,36 @@ export function buildCity(world) {
         max: new THREE.Vector3(cx + w / 2, bottom + h, cz + d / 2),
       });
 
-      // emissive neon strip up one face
-      const stripColor = accentHexes[(gx + gz + 8) % accentHexes.length];
-      const strip = new THREE.Mesh(
-        new THREE.BoxGeometry(0.4, h * 0.8, 0.4),
-        new THREE.MeshBasicMaterial({ color: stripColor }),
-      );
-      strip.position.set(cx + w / 2 + 0.1, bottom + h * 0.45, cz);
-      group.add(strip);
+      // optional setback tower stacked on top for a varied skyline
+      let topY = bottom + h;
+      if (rng() < 0.45) {
+        const tw = w * 0.62, td = d * 0.62, th = 5 + rng() * 16;
+        const t = new THREE.Mesh(new THREE.BoxGeometry(tw, th, td), windowMaterial(accent, tw, th));
+        t.position.set(cx, topY + th / 2, cz);
+        t.castShadow = true; group.add(t);
+        topY += th;
+      }
 
-      // rooftop glow + a few real point lights for atmosphere
-      const beacon = new THREE.Mesh(
-        new THREE.SphereGeometry(0.6, 8, 8),
-        new THREE.MeshBasicMaterial({ color: stripColor }),
-      );
-      beacon.position.set(cx, bottom + h + 0.8, cz);
+      // antenna mast on some, then a rooftop beacon + the occasional real light
+      if (rng() < 0.55) {
+        const ah = 3 + rng() * 6;
+        const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, ah, 6), antMat);
+        ant.position.set(cx, topY + ah / 2, cz); group.add(ant);
+        topY += ah;
+      }
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color: accent }));
+      beacon.position.set(cx, topY + 0.6, cz);
       group.add(beacon);
-      if (lightBudget > 0 && rng() < 0.5) {
-        const pl = new THREE.PointLight(stripColor, 1.2, 60);
-        pl.position.set(cx, bottom + h + 1, cz);
-        group.add(pl);
-        lightBudget--;
+      if (lightBudget > 0 && rng() < 0.4) {
+        const pl = new THREE.PointLight(accent, 1.1, 60);
+        pl.position.set(cx, topY + 1.5, cz);
+        group.add(pl); lightBudget--;
       }
     }
   }
+
+  // scattered landscape props out past the streets (rocks + glowing flora/pylons)
+  scatterProps(group, world, heightAt, rng);
 
   return {
     group,
@@ -138,6 +146,71 @@ export function buildCity(world) {
     spawn: new THREE.Vector3(0, 0, 16),  // just off the pad (flat plaza)
     padPosition: new THREE.Vector3(0, 0, 0),
   };
+}
+
+// --- window-lit building skins ---
+// A small canvas of dark wall + randomly-lit windows in an accent colour, cached per
+// accent and cloned per building so window density can scale with the building size.
+const _winTexCache = {};
+function windowTexture(hex) {
+  if (_winTexCache[hex]) return _winTexCache[hex];
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1a2233'; ctx.fillRect(0, 0, 32, 64); // wall
+  const col = '#' + (hex >>> 0).toString(16).padStart(6, '0');
+  for (let y = 0; y < 15; y++) {
+    for (let x = 0; x < 4; x++) {
+      if (Math.random() < 0.5) {
+        ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+        ctx.fillStyle = col;
+        ctx.fillRect(x * 8 + 2, y * 4 + 1, 4, 2);
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  _winTexCache[hex] = t;
+  return t;
+}
+
+function windowMaterial(accentHex, w, h) {
+  const tex = windowTexture(accentHex).clone();
+  tex.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(2, Math.round(h / 5)));
+  tex.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({
+    roughness: 0.8, metalness: 0.25,
+    map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1.0,
+  });
+}
+
+// Scatter low-poly rocks + glowing flora/pylons across the terrain past the streets,
+// so worlds read as landscapes rather than a bare grid.
+function scatterProps(group, world, heightAt, rng) {
+  const rockHex = (TERRAIN[world.id] || {}).color ?? 0x223040;
+  const rockMat = new THREE.MeshStandardMaterial({ color: rockHex, roughness: 1, metalness: 0, flatShading: true });
+  const floraMat = new THREE.MeshStandardMaterial({ color: world.atmo, emissive: world.atmo, emissiveIntensity: 0.7, roughness: 0.5 });
+  for (let i = 0; i < 70; i++) {
+    const a = rng() * Math.PI * 2;
+    const r = 36 + rng() * 150;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (Math.abs(x) > 185 || Math.abs(z) > 185) continue;
+    const y = heightAt(x, z);
+    if (rng() < 0.7) {
+      const s = 1 + rng() * 3.5;
+      const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), rockMat);
+      rock.position.set(x, y + s * 0.25, z);
+      rock.rotation.set(rng() * 3, rng() * 3, rng() * 3);
+      rock.castShadow = true; rock.receiveShadow = true;
+      group.add(rock);
+    } else {
+      const fh = 2.5 + rng() * 4.5;
+      const stalk = new THREE.Mesh(new THREE.ConeGeometry(0.5, fh, 6), floraMat);
+      stalk.position.set(x, y + fh / 2, z);
+      group.add(stalk);
+    }
+  }
 }
 
 // Low-poly faceted terrain grid using the shared height sampler.

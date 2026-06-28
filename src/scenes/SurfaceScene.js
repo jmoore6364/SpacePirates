@@ -11,11 +11,12 @@ import { player } from '../game/Player.js';
 import { clamp } from '../util/math.js';
 
 // Per-visit time-of-day phases (a light day/night nudge layered on the world mood).
+// Floors kept high so the city stays readable even at "night".
 const TIME_PHASES = [
-  { name: 'day',   sunMul: 1.0,  warm: 0x000000, ambMul: 1.0 },
-  { name: 'dusk',  sunMul: 0.7,  warm: 0x3a1505, ambMul: 0.9 },
-  { name: 'night', sunMul: 0.35, warm: 0x000814, ambMul: 0.7 },
-  { name: 'dawn',  sunMul: 0.8,  warm: 0x281030, ambMul: 0.85 },
+  { name: 'day',   sunMul: 1.1,  warm: 0x000000, ambMul: 1.1 },
+  { name: 'dusk',  sunMul: 0.9,  warm: 0x3a1505, ambMul: 1.0 },
+  { name: 'night', sunMul: 0.65, warm: 0x001028, ambMul: 0.9 },
+  { name: 'dawn',  sunMul: 0.95, warm: 0x281030, ambMul: 1.0 },
 ];
 let _visit = 0;
 
@@ -33,15 +34,17 @@ export class SurfaceScene {
     const phase = TIME_PHASES[_visit++ % TIME_PHASES.length];
     this.timeOfDay = phase.name;
 
-    this.scene.background = new THREE.Color(L.fog);
-    this.scene.fog = new THREE.Fog(L.fog, L.fogNear, L.fogFar);
+    // push the horizon back + lift the background so the city isn't swallowed by fog
+    this.scene.background = new THREE.Color(L.fog).lerp(new THREE.Color(L.sky), 0.25);
+    this.scene.fog = new THREE.Fog(L.fog, L.fogNear * 1.4, L.fogFar * 1.7);
 
-    this.scene.add(new THREE.HemisphereLight(L.sky, L.ground, L.ambI * 0.9));
-    this.scene.add(new THREE.AmbientLight(L.amb, L.ambI * phase.ambMul * 0.7));
+    // brighter sky/ground + ambient fill so everything reads clearly
+    this.scene.add(new THREE.HemisphereLight(L.sky, L.ground, (L.ambI || 0.7) * 1.8 + 0.35));
+    this.scene.add(new THREE.AmbientLight(L.amb, (L.ambI || 0.7) * phase.ambMul * 1.3 + 0.2));
 
-    // shadow-casting key light tinted by world + time of day
+    // shadow-casting key light tinted by world + time of day (with a sensible floor)
     const sunColor = new THREE.Color(L.sun).lerp(new THREE.Color(phase.warm), 0.25);
-    const key = new THREE.DirectionalLight(sunColor.getHex(), L.sunI * phase.sunMul);
+    const key = new THREE.DirectionalLight(sunColor.getHex(), Math.max(1.5, L.sunI * phase.sunMul));
     key.position.set(60, 110, 40);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -50,6 +53,11 @@ export class SurfaceScene {
     key.shadow.bias = -0.0004;
     this.scene.add(key);
     this.scene.add(key.target);
+
+    // soft cool fill from the opposite side so shadowed faces aren't pitch black
+    const fill = new THREE.DirectionalLight(L.sky, 0.6);
+    fill.position.set(-70, 50, -40);
+    this.scene.add(fill);
 
     const city = buildCity(world);
     this.scene.add(city.group);
