@@ -11,7 +11,11 @@ import { player } from '../game/Player.js';
 // Where the held gun sits in the right-hand bone's local space. The Quaternius hand
 // bone carries a ~70× world scale, so the gun is scaled down hard to read hand-sized;
 // pos offsets are tiny for the same reason. euler may need eyeball tuning.
-const GUN_FIT = { pos: [0, 0.004, 0.004], euler: [0, -Math.PI / 2, 0], scale: 0.012 };
+const GUN_FIT = { pos: [0, 0.004, 0.004], euler: [-Math.PI / 2, 0, 0], scale: 0.012 };
+
+// Procedural aim: override the right arm each frame to raise the gun and point it
+// forward (the rig has no aim clip). Measured: UpperArm.R at X+90° → arm fwd ≈ +0.99.
+const AIM_UPPER_ARM = [Math.PI / 2, 0, 0];
 
 export class Character {
   constructor() {
@@ -40,6 +44,8 @@ export class Character {
       this._bobAmp = 0; // the walk/idle clips provide the motion
       this.actor.play('idle');
       this.equipGun(player.groundWeapon().id);
+      this._armUpper = this.actor.findBone('UpperArm.R');
+      this._armLower = this.actor.findBone('LowerArm.R');
     } else {
       this.object.add(buildFigure());
     }
@@ -92,6 +98,11 @@ export class Character {
     if (this.actor) {
       this.actor.play(this.moving ? 'walk' : 'idle');
       this.actor.update(dt);
+      // override the right arm AFTER the clip so he holds the gun out, pointing forward
+      if (this._armUpper) {
+        this._armUpper.rotation.set(AIM_UPPER_ARM[0], AIM_UPPER_ARM[1], AIM_UPPER_ARM[2]);
+        if (this._armLower) this._armLower.rotation.set(0, 0, 0);
+      }
     }
 
     // weapon recoil kick decays back to the rest pose
