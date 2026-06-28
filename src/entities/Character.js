@@ -8,8 +8,10 @@ import { AnimatedActor } from './AnimatedActor.js';
 import { buildGun } from './Gun.js';
 import { player } from '../game/Player.js';
 
-// Where the held gun sits in the right-hand bone's local space (tuned to the rig).
-const GUN_FIT = { pos: [0.02, 0.0, 0.06], euler: [Math.PI / 2, 0, 0], scale: 1 };
+// Where the held gun sits in the right-hand bone's local space. The Quaternius hand
+// bone carries a ~70× world scale, so the gun is scaled down hard to read hand-sized;
+// pos offsets are tiny for the same reason. euler may need eyeball tuning.
+const GUN_FIT = { pos: [0, 0.004, 0.004], euler: [0, -Math.PI / 2, 0], scale: 0.012 };
 
 export class Character {
   constructor() {
