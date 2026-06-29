@@ -136,6 +136,9 @@ export function buildCity(world) {
     }
   }
 
+  // elevated neon skyways crisscrossing above the streets
+  buildSkyways(group, rng, accentHexes);
+
   // scattered landscape props out past the streets (rocks + glowing flora/pylons)
   scatterProps(group, world, heightAt, rng);
 
@@ -146,6 +149,42 @@ export function buildCity(world) {
     spawn: new THREE.Vector3(0, 0, 16),  // just off the pad (flat plaza)
     padPosition: new THREE.Vector3(0, 0, 0),
   };
+}
+
+// Elevated neon roadways spanning the city at various heights, with glowing edge
+// rails and a couple of support pylons each — the futuristic skyway look.
+function buildSkyways(group, rng, accentHexes) {
+  const deckMat = new THREE.MeshStandardMaterial({ color: 0x10151f, roughness: 0.7, metalness: 0.45 });
+  const span = 260;
+  for (let i = 0; i < 7; i++) {
+    const horiz = rng() < 0.5;
+    const y = 18 + rng() * 32;
+    const wdt = 3 + rng() * 2.5;
+    const off = (rng() - 0.5) * 150;
+    const accent = accentHexes[i % accentHexes.length];
+
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(horiz ? span : wdt, 0.6, horiz ? wdt : span), deckMat);
+    deck.position.set(horiz ? 0 : off, y, horiz ? off : 0);
+    deck.castShadow = true; deck.receiveShadow = true;
+    group.add(deck);
+
+    for (const s of [-1, 1]) { // glowing edge rails
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(horiz ? span : 0.25, 0.25, horiz ? 0.25 : span),
+        new THREE.MeshBasicMaterial({ color: accent }),
+      );
+      rail.position.set(horiz ? 0 : off + s * wdt / 2, y + 0.45, horiz ? off + s * wdt / 2 : 0);
+      group.add(rail);
+    }
+
+    for (let k = -1; k <= 1; k += 2) { // support pylons down to the ground
+      const px = horiz ? k * 78 : off;
+      const pz = horiz ? off : k * 78;
+      const pyl = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, y, 6), deckMat);
+      pyl.position.set(px, y / 2, pz);
+      group.add(pyl);
+    }
+  }
 }
 
 // --- window-lit building skins ---

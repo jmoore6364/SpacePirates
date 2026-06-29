@@ -22,6 +22,14 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Skyways + flying traffic** — elevated neon roadways crisscross the city
+  (`buildSkyways()` in `city.js`: decks + glowing edge rails + support pylons at
+  heights 18–50). `Traffic.js` flies craft in wrapping lanes overhead, reusing the
+  **ship GLB models** (`shipModel()` returns the Object3D directly — NOT `{object}`
+  like `characterModel()`; that mismatch crashed the scene once) scaled to 0.55, with
+  a procedural-craft fallback. Wired into `SurfaceScene` (create + `traffic.update(dt)`
+  + dispose). They cruise at height 16–56, so ground-level auto-screenshots don't frame
+  them — look up in-game.
 - **City visual pass** — brighter + nicer surface cities (all in-engine, no new assets):
   - *Lighting:* `SurfaceScene` hemisphere/ambient/key boosted with floors, added a cool
     fill light, lifted the `TIME_PHASES` night, pushed fog back ×1.7 + lifted background.

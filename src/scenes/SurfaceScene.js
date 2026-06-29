@@ -7,6 +7,7 @@ import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
 import { GroundCombat } from '../systems/GroundCombat.js';
 import { Crowd } from './Crowd.js';
+import { Traffic } from './Traffic.js';
 import { player } from '../game/Player.js';
 import { clamp } from '../util/math.js';
 
@@ -105,6 +106,9 @@ export class SurfaceScene {
       bounds: 150,
       onBark: (line) => { if (this.onEvent) this.onEvent({ type: 'bark', line }); },
     });
+
+    // flying traffic cruising the skyways overhead
+    this.traffic = new Traffic(this.scene, { count: 16, bounds: 200 });
 
     // on-foot blaster combat — enforcers come if you landed with heat on you
     this.ground = new GroundCombat(this.scene, this.character, input, {
@@ -212,6 +216,7 @@ export class SurfaceScene {
     }
 
     this.ground.update(dt);
+    if (this.traffic) this.traffic.update(dt); // flying vehicles cruise overhead
 
     // living crowd wanders; scatters when a firefight is on
     if (this.crowd) {
