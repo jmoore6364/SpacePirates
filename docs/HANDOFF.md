@@ -22,6 +22,16 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Per-planet architecture (Phase 1 of the interiors plan)** — each world's city now
+  has a distinct building **style** (`WORLD_STYLE` + `STYLE_BUILDERS` dispatch in
+  `city.js`): Neon Haven = neon towers (+skyways+16 traffic), Dust Reach = sandstone
+  **huts** (ancient frontier, no skyways/traffic), Cryo = ice **domes**, Verdant =
+  jungle **treehouses**, The Maw = **rock** fortress + metal containers. Skyways gated
+  to futuristic styles; `buildCity` returns `trafficCount` (towers 16 / domes 8 /
+  organic+rock 3 / huts 0) consumed by `SurfaceScene`'s `Traffic`. Verified by landing
+  on all 5 worlds (no console errors). **Phase 2 (enterable themed interiors — many
+  buildings, themed per vendor) is designed and next** — `Mode.INTERIOR` already exists
+  in `GameState.js`; see plan `~/.claude/plans/distributed-bouncing-wolf.md`.
 - **Skyways + flying traffic** — elevated neon roadways crisscross the city
   (`buildSkyways()` in `city.js`: decks + glowing edge rails + support pylons at
   heights 18–50). `Traffic.js` flies craft in wrapping lanes overhead, reusing the

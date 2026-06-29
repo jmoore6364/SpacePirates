@@ -107,8 +107,8 @@ export class SurfaceScene {
       onBark: (line) => { if (this.onEvent) this.onEvent({ type: 'bark', line }); },
     });
 
-    // flying traffic cruising the skyways overhead
-    this.traffic = new Traffic(this.scene, { count: 16, bounds: 200 });
+    // flying traffic cruising the skyways overhead (density suits the world's style)
+    this.traffic = new Traffic(this.scene, { count: city.trafficCount ?? 16, bounds: 200 });
 
     // on-foot blaster combat — enforcers come if you landed with heat on you
     this.ground = new GroundCombat(this.scene, this.character, input, {
