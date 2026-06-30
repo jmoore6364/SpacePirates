@@ -33,8 +33,12 @@ const CHARACTER_URLS = {
   robot: new URL('../assets/models/quaternius-robot.glb', import.meta.url).href,
 };
 
+// Custom Blender-modelled assets (Void Corsair originals). Nose toward -Z (game forward).
+const WARLORD_URL = new URL('../assets/models/warlord.glb', import.meta.url).href;
+
 const _cache = new Map();        // hullId → normalized THREE.Object3D (template to clone)
 const _charTpls = new Map();     // kind → { scene, animations } character template
+let _bossTpl = null;             // Warlord capital-ship template
 let _loaded = false;
 let _loadPromise = null;
 
@@ -75,7 +79,9 @@ export function preloadModels() {
       });
       _charTpls.set(kind, { scene: gltf.scene, animations: gltf.animations });
     }).catch(() => { /* this kind falls back to the procedural figure */ }));
-  _loadPromise = Promise.all([...ships, ...characters]).then(() => { _loaded = true; });
+  const boss = load(WARLORD_URL).then((gltf) => { _bossTpl = gltf.scene; })
+    .catch(() => { /* boss falls back to the procedural capital ship */ });
+  _loadPromise = Promise.all([...ships, ...characters, boss]).then(() => { _loaded = true; });
   return _loadPromise;
 }
 
@@ -85,6 +91,12 @@ export function modelsReady() { return _loaded; }
 export function shipModel(hullId) {
   const tpl = _cache.get(hullId);
   return tpl ? tpl.clone(true) : null;
+}
+
+// A fresh clone of the Warlord capital ship (modelled in Blender), or null to fall
+// back to the procedural boss mesh. Caller scales it to the desired size.
+export function bossModel() {
+  return _bossTpl ? _bossTpl.clone(true) : null;
 }
 
 export const CROWD_KINDS = ['man', 'woman', 'alien'];

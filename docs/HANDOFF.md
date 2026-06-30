@@ -22,6 +22,19 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Custom Blender asset: Warlord boss capital ship** — first model authored with
+  **headless Blender** (`tools/blender/warlord.py`, run via
+  `"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe" --background --python
+  tools/blender/warlord.py -- <out.glb>`). bpy builds a menacing low-poly capital ship
+  (dark hull, mandible prow + glowing ram, triple engine nacelles, turrets, spines),
+  joins it (apply transforms BEFORE join or scale warps), and **rotates −90° about X
+  before export** (Blender Z-up → glTF Y-up, else the ship points straight up). GLB →
+  `src/assets/models/warlord.glb`. `Models.js` `bossModel()` loads it; `Combat.js`
+  `buildEnemyMesh` Warlord branch clones it (scaled `(7.5/9.8)*type.scale`) with the
+  procedural box-stack as fallback. **Blender 4.5 is installed locally** and runs
+  headless with the glTF exporter — this is the asset pipeline going forward (the
+  interactive Blender-MCP integration exists but needs uv + add-on + a running Blender;
+  headless scripting needs none of that).
 - **Enterable buildings + themed interiors (Phase 2)** — vendors are now buildings you
   walk into. Surface E → `enterBuilding(kind)` (fade transition, `Mode.INTERIOR`); the
   surface scene is **kept loaded** (`SceneManager.switchTo(mode, scene, dispose=false)`)

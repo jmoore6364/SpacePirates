@@ -5,6 +5,7 @@
 import { THREE } from '../renderer/Renderer.js';
 import { player } from '../game/Player.js';
 import { clamp } from '../util/math.js';
+import { bossModel } from '../entities/Models.js';
 
 const FWD = new THREE.Vector3(0, 0, -1);
 const PROJ_SPEED = 760;
@@ -567,6 +568,11 @@ function buildEnemyMesh(type) {
   const glow = new THREE.MeshBasicMaterial({ color: type.color });
 
   if (type.name === 'Warlord') {
+    // custom Blender-modelled capital ship when available (model is ~9.8 long; the
+    // procedural fallback spine is 7.5, so match that before the per-type scale)
+    const m = bossModel();
+    if (m) { m.scale.setScalar((7.5 / 9.8) * type.scale); return m; }
+
     // hulking capital ship: long armored spine, side batteries, menacing red eyes
     const spine = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 7.5), hull);
     g.add(spine);
