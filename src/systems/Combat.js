@@ -21,12 +21,14 @@ const SPLASH_DMG = 24;
 
 // Enemy archetypes — distinct feel and threat. Mix is gated by wanted level.
 // Bounty rises faster than HP up the ladder (≈2.3 → 3.1 cr/HP) so escalation pays.
+// speed = cruise units/s; strafe = how hard they orbit at ideal range; agility = how
+// fast their velocity turns toward intent (lower = more inertia, easier to shake/flank).
 export const ENEMY_TYPES = {
-  scout:   { name: 'Scout',   hp: 18, speed: 175, ideal: 150, range: 300, fireCd: 1.7, dmg: 6,  bounty: 42,  scale: 0.8, color: 0x66e0ff, strafe: 0.95 },
-  raider:  { name: 'Raider',  hp: 34, speed: 120, ideal: 180, range: 360, fireCd: 1.4, dmg: 9,  bounty: 82,  scale: 1.0, color: 0xff5b6e, strafe: 0.6 },
-  gunship: { name: 'Gunship', hp: 84, speed: 78,  ideal: 230, range: 440, fireCd: 1.0, dmg: 17, bounty: 210, scale: 1.7, color: 0xffa23c, strafe: 0.2 },
+  scout:   { name: 'Scout',   hp: 18, speed: 130, ideal: 150, range: 300, fireCd: 1.7, dmg: 6,  bounty: 42,  scale: 0.8, color: 0x66e0ff, strafe: 0.6,  agility: 2.0 },
+  raider:  { name: 'Raider',  hp: 34, speed: 98,  ideal: 180, range: 360, fireCd: 1.4, dmg: 9,  bounty: 82,  scale: 1.0, color: 0xff5b6e, strafe: 0.45, agility: 1.6 },
+  gunship: { name: 'Gunship', hp: 84, speed: 66,  ideal: 230, range: 440, fireCd: 1.0, dmg: 17, bounty: 210, scale: 1.7, color: 0xffa23c, strafe: 0.18, agility: 1.1 },
   // boss: a pirate Warlord capital ship that hunts you at max heat
-  warlord: { name: 'Warlord', hp: 520, speed: 55, ideal: 210, range: 560, fireCd: 0.9, dmg: 14, bounty: 1600, scale: 3.0, color: 0xff3b50, strafe: 0.35, volley: 3, boss: true },
+  warlord: { name: 'Warlord', hp: 520, speed: 50, ideal: 210, range: 560, fireCd: 0.9, dmg: 14, bounty: 1600, scale: 3.0, color: 0xff3b50, strafe: 0.3, agility: 0.85, volley: 3, boss: true },
 };
 
 export class Combat {
@@ -315,15 +317,15 @@ export class Combat {
       const dist = toPlayer.length();
       toPlayer.normalize();
 
-      // face the player and keep this type's preferred fighting distance
-      const desired = this._tmp2.copy(e.mesh.position);
-      if (dist > t.ideal + 30) desired.addScaledVector(toPlayer, t.speed * dt);
-      else if (dist < t.ideal - 30) desired.addScaledVector(toPlayer, -t.speed * dt);
-      else {
-        const side = new THREE.Vector3(toPlayer.z, 0, -toPlayer.x);
-        desired.addScaledVector(side, t.speed * t.strafe * dt);
-      }
-      e.mesh.position.copy(desired);
+      // desired velocity: close in when far, back off when too close, orbit at range
+      const want = this._tmp2.set(0, 0, 0);
+      if (dist > t.ideal + 30) want.copy(toPlayer).multiplyScalar(t.speed);
+      else if (dist < t.ideal - 30) want.copy(toPlayer).multiplyScalar(-t.speed * 0.7);
+      else want.set(toPlayer.z, 0, -toPlayer.x).multiplyScalar(t.speed * t.strafe);
+      // inertia: velocity eases toward intent (can't instantly redirect), so a hard
+      // turn lets you shake them / swing onto their tail — they're ships, not trackers
+      e.vel.lerp(want, clamp(dt * (t.agility || 1.5), 0, 1));
+      e.mesh.position.addScaledVector(e.vel, dt);
       e.mesh.lookAt(this.ship.position);
 
       // fire at the player
