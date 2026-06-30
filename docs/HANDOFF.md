@@ -22,6 +22,20 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Enterable buildings + themed interiors (Phase 2)** — vendors are now buildings you
+  walk into. Surface E → `enterBuilding(kind)` (fade transition, `Mode.INTERIOR`); the
+  surface scene is **kept loaded** (`SceneManager.switchTo(mode, scene, dispose=false)`)
+  so returning is instant + state-preserving. `InteriorScene` (mirrors SurfaceScene:
+  on-foot controller, `Crowd` NPCs via new `count` option) + `interior.js`
+  `buildInterior(kind, world)` builds a themed room per vendor (Trading Post / Bazaar /
+  Hangar Bay w/ parked ship / Armory w/ gun racks / Neon Cantina / Mission Hall; `lobby`
+  fallback). Inside: a counter `station` (E → `openVendorPanel`) + an `exit` door (E →
+  `exitBuilding`). main.js: `interior` state, `openInteract` enters buildings (quest
+  giver still talks outside), `openInteractInterior`, KeyE INTERIOR case, minimap gated
+  to SURFACE, `__VC__.openVendor/enterBuilding/exitBuilding`. Self-test updated (vendor
+  content-checks open panels via `__VC__.openVendor`; new test drives the real
+  enter→counter→exit flow). **NEXT:** generic non-vendor buildings → shared `lobby`
+  interiors (the "many buildings" part), + holo-signs/weather polish.
 - **Per-planet architecture (Phase 1 of the interiors plan)** — each world's city now
   has a distinct building **style** (`WORLD_STYLE` + `STYLE_BUILDERS` dispatch in
   `city.js`): Neon Haven = neon towers (+skyways+16 traffic), Dust Reach = sandstone

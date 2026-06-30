@@ -599,7 +599,7 @@ async function main() {
     await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'shop', { timeout: 6000 }).catch(() => {});
     const interactId = await page.evaluate(() => window.__VC__.surface.hud?.interact?.id);
     if (interactId !== 'shop') errors.push(`shop interact not detected (got ${interactId})`);
-    await page.keyboard.press('e');
+    await page.evaluate(() => window.__VC__.openVendor('shop'));
     await page.waitForFunction(() => window.__VC__.shop.isOpen === true, { timeout: 6000 }).catch(() => {});
     if (!(await page.evaluate(() => window.__VC__.shop.isOpen))) errors.push('shop did not open');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-shop.png') });
@@ -624,7 +624,7 @@ async function main() {
       s.character.position.set(t.position.x, 0, t.position.z + 4);
     });
     await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'missions', { timeout: 6000 }).catch(() => {});
-    await page.keyboard.press('e');
+    await page.evaluate(() => window.__VC__.openVendor('missions'));
     await page.waitForFunction(() => window.__VC__.missionBoard.isOpen === true, { timeout: 6000 }).catch(() => {});
     if (!(await page.evaluate(() => window.__VC__.missionBoard.isOpen))) errors.push('mission board did not open');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass4-missions.png') });
@@ -638,7 +638,7 @@ async function main() {
     await page.waitForFunction(() => window.__VC__.missionBoard.isOpen === false, { timeout: 6000 }).catch(() => {});
 
     // mission guidance: the accepted delivery shows in the HUD objectives readout
-    await sleep(250); // let the HUD redraw tick
+    await sleep(700); // let the HUD redraw tick (a few frames even at low FPS)
     const guide = await page.evaluate(() => document.getElementById('hud-missions').textContent || '');
     if (!guide.includes('→')) errors.push('mission guidance not shown in HUD');
     console.log(`› mission guidance: "${guide.trim().slice(0, 60)}"`);
@@ -650,7 +650,7 @@ async function main() {
       s.character.position.set(t.position.x, 0, t.position.z + 4);
     });
     await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'market', { timeout: 5000 });
-    await page.keyboard.press('e');
+    await page.evaluate(() => window.__VC__.openVendor('market'));
     await sleep(300);
     if (!(await page.evaluate(() => window.__VC__.market.isOpen))) errors.push('market did not open');
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass7-market.png') });
@@ -725,7 +725,7 @@ async function main() {
     const hasYard = await page.evaluate(() => !!window.__VC__.surface.interactables.find((i) => i.id === 'shipyard'));
     if (!hasYard) errors.push('shipyard vendor not present');
     await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'shipyard', { timeout: 6000 }).catch(() => {});
-    await page.keyboard.press('e');
+    await page.evaluate(() => window.__VC__.openVendor('shipyard'));
     await page.waitForFunction(() => window.__VC__.shipyard.isOpen === true, { timeout: 6000 }).catch(() => {});
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass9-shipyard.png') });
     const yard = await page.evaluate(() => {
@@ -749,7 +749,7 @@ async function main() {
     const hasArmory = await page.evaluate(() => !!window.__VC__.surface.interactables.find((i) => i.id === 'armory'));
     if (!hasArmory) errors.push('armory vendor not present');
     await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'armory', { timeout: 6000 }).catch(() => {});
-    await page.keyboard.press('e');
+    await page.evaluate(() => window.__VC__.openVendor('armory'));
     await page.waitForFunction(() => window.__VC__.armory.isOpen === true, { timeout: 6000 }).catch(() => {});
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass16-armory.png') });
     const arm = await page.evaluate(() => {
@@ -761,6 +761,38 @@ async function main() {
     console.log(`› armory: weapon=${arm.sidearm}, bolt dmg ${arm.dmg}`);
     await page.keyboard.press('e'); // close
     await page.waitForFunction(() => window.__VC__.armory.isOpen === false, { timeout: 6000 }).catch(() => {});
+
+    // Building interiors: enter a vendor building, open its panel at the counter, leave
+    await page.evaluate(() => { const s = window.__VC__.surface; const v = s.interactables.find((i) => i.id === 'shipyard'); s.character.position.set(v.position.x, 0, v.position.z + 4); });
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.interact?.id === 'shipyard', { timeout: 6000 }).catch(() => {});
+    await page.keyboard.press('e'); // enter building
+    await page.waitForFunction(() => window.__VC__.scenes.mode === 'INTERIOR', { timeout: 6000 }).catch(() => {});
+    await sleep(400);
+    const inside = await page.evaluate(() => ({
+      mode: window.__VC__.scenes.mode,
+      title: window.__VC__.interior?.title,
+      hasStation: !!window.__VC__.interior?.interactables.find((i) => i.id === 'shipyard'),
+      hasExit: !!window.__VC__.interior?.interactables.find((i) => i.id === 'exit'),
+    }));
+    if (inside.mode !== 'INTERIOR') errors.push('did not enter building interior');
+    if (!inside.hasStation || !inside.hasExit) errors.push('interior missing station/exit interactable');
+    await page.screenshot({ path: path.join(SHOT_DIR, 'pass-interior.png') });
+    console.log(`› interior: "${inside.title}" station=${inside.hasStation} exit=${inside.hasExit}`);
+    // open the vendor panel at the counter
+    await page.evaluate(() => { const i = window.__VC__.interior; const st = i.interactables.find((x) => x.id === 'shipyard'); i.character.position.set(st.pos.x, 0, st.pos.z + 3); });
+    await page.waitForFunction(() => window.__VC__.interior?.hud?.interact?.id === 'shipyard', { timeout: 6000 }).catch(() => {});
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__VC__.shipyard.isOpen === true, { timeout: 6000 }).catch(() => {});
+    if (!(await page.evaluate(() => window.__VC__.shipyard.isOpen))) errors.push('vendor panel did not open inside building');
+    await page.keyboard.press('e'); // close panel
+    await sleep(300);
+    // leave through the door
+    await page.evaluate(() => { const i = window.__VC__.interior; const ex = i.interactables.find((x) => x.id === 'exit'); i.character.position.set(ex.pos.x, 0, ex.pos.z - 2); });
+    await page.waitForFunction(() => window.__VC__.interior?.hud?.interact?.id === 'exit', { timeout: 6000 }).catch(() => {});
+    await page.keyboard.press('e'); // exit building
+    await page.waitForFunction(() => window.__VC__.scenes.mode === 'SURFACE', { timeout: 6000 }).catch(() => {});
+    if (await page.evaluate(() => window.__VC__.scenes.mode) !== 'SURFACE') errors.push('did not exit building back to surface');
+    console.log('› building enter/exit ok');
 
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });

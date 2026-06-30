@@ -18,8 +18,10 @@ export class SceneManager {
     this.current = null;
   }
 
-  switchTo(mode, scene) {
-    if (this.current && this.current.dispose) this.current.dispose();
+  // dispose=false keeps the previous scene alive (e.g. surface stays loaded while you
+  // step into a building interior, so returning needs no rebuild and no state reset).
+  switchTo(mode, scene, dispose = true) {
+    if (dispose && this.current && this.current.dispose) this.current.dispose();
     this.mode = mode;
     this.current = scene;
     this.renderer.setScene(scene.scene);

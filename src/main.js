@@ -5,6 +5,7 @@ import { Input } from './core/Input.js';
 import { SpaceScene } from './scenes/SpaceScene.js';
 import { preloadModels } from './entities/Models.js';
 import { SurfaceScene } from './scenes/SurfaceScene.js';
+import { InteriorScene } from './scenes/InteriorScene.js';
 import { StarMap } from './ui/StarMap.js';
 import { Shop, MissionBoard, Market, Dialogue, Skills, Shipyard, Armory } from './ui/Panels.js';
 import { TitleScreen } from './ui/TitleScreen.js';
@@ -57,6 +58,7 @@ const el = {
 
 let space = null;
 let surface = null;
+let interior = null; // active building interior (surface stays loaded behind it)
 let busy = false;    // true during a fade transition
 let panel = null;    // open DOM panel (shop / missions)
 let started = false; // false while the title screen is up
@@ -81,7 +83,7 @@ function saveSettings() {
 
 // release on-foot mouse-look pointer lock (used when opening UI / leaving the surface)
 const exitLook = () => { if (typeof document !== 'undefined' && document.pointerLockElement) document.exitPointerLock?.(); };
-const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; if (space) space.inputLocked = false; };
+const closePanel = () => { panel = null; if (surface) surface.inputLocked = false; if (space) space.inputLocked = false; if (interior) interior.inputLocked = false; };
 const shop = new Shop({ onClose: closePanel });
 const missionBoard = new MissionBoard({ onClose: closePanel });
 const market = new Market({ onClose: closePanel });
@@ -329,10 +331,17 @@ function talkToGiver(world) {
   panel = dialogue;
 }
 
+// Surface E: the quest-giver still talks outside; every other vendor is now a building
+// you step into.
 function openInteract(world, kind) {
   tutorial.mark('interacted');
   if (kind === 'quest') { talkToGiver(world); return; }
-  surface.inputLocked = true;
+  enterBuilding(kind, world);
+}
+
+// Open a vendor's panel, locking whichever on-foot scene is active (surface or interior).
+function openVendorPanel(kind, world, scene) {
+  scene.inputLocked = true;
   exitLook();
   audio.blip();
   if (kind === 'shop') { shop.open(player); panel = shop; }
@@ -345,6 +354,37 @@ function openInteract(world, kind) {
     missionBoard.open(player, missionLog, offers);
     panel = missionBoard;
   }
+}
+
+// Step into a building interior. The surface scene stays loaded behind us (not
+// disposed) so returning is instant and keeps you right where you left off.
+function enterBuilding(kind, world) {
+  if (busy) return;
+  exitLook();
+  transition(() => {
+    interior = new InteriorScene(input, kind, world, questLog);
+    interior.onEvent = (e) => { if (e.type === 'bark') toast(`“${e.line}”`); };
+    scenes.switchTo(Mode.INTERIOR, interior, false); // keep surface alive
+    audio.blip();
+    toast(`${interior.title} — [E] at the counter, [E] at the door to leave.`);
+  });
+}
+
+function exitBuilding() {
+  if (busy || !surface) return;
+  const w = interior?.world;
+  transition(() => {
+    scenes.switchTo(Mode.SURFACE, surface); // disposes the interior, restores the surface
+    interior = null;
+    if (w) toast(`Back on ${w.name}.`);
+  });
+}
+
+// Interior E: the door takes you back outside, the counter opens the vendor panel.
+function openInteractInterior(id) {
+  if (id === 'exit') { exitBuilding(); return; }
+  tutorial.mark('interacted');
+  openVendorPanel(id, interior.world, interior);
 }
 
 function takeoff(world) {
@@ -455,6 +495,8 @@ window.addEventListener('keydown', (e) => {
     case 'KeyE':
       if (scenes.mode === Mode.SURFACE && surface?.hud?.interact) {
         openInteract(surface.world, surface.hud.interact.id);
+      } else if (scenes.mode === Mode.INTERIOR && interior?.hud?.interact) {
+        openInteractInterior(interior.hud.interact.id);
       }
       break;
     case 'KeyK':
@@ -711,7 +753,8 @@ function renderHud() {
     el.throttle.textContent = `◈ ${h.world.name}`;
     el.speed.textContent = h.world.theme;
     el.radar.classList.remove('show');
-    if (surface) { el.minimap.classList.add('show'); drawMinimap(surface); }
+    if (surface && scenes.mode === Mode.SURFACE) { el.minimap.classList.add('show'); drawMinimap(surface); }
+    else el.minimap.classList.remove('show');
     const gr = h.ground;
     if (gr && (gr.hp < gr.maxHp || gr.enemies > 0)) {
       const k = Math.round(clamp01(gr.hp / gr.maxHp) * 12);
@@ -843,5 +886,8 @@ window.__VC__ = {
   start: (isNew = false) => titleScreen.start(isNew),
   get space() { return space; },
   get surface() { return surface; },
-  land, takeoff,
+  get interior() { return interior; },
+  land, takeoff, enterBuilding, exitBuilding,
+  // test/debug helper: open a vendor panel directly on the active on-foot scene
+  openVendor: (kind) => { const sc = interior || surface; if (sc) openVendorPanel(kind, sc.world, sc); },
 };

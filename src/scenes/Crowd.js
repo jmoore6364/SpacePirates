@@ -18,12 +18,13 @@ const BARK_LINES = [
 ];
 
 export class Crowd {
-  constructor(scene, { colliders = [], groundY, world, bounds = 150, onBark } = {}) {
+  constructor(scene, { colliders = [], groundY, world, bounds = 150, onBark, count } = {}) {
     this.scene = scene;
     this.colliders = colliders;
     this.groundY = groundY || (() => 0);
     this.bounds = bounds;
     this.onBark = onBark || (() => {});
+    this._countOverride = count;
 
     const cfg = world?.crowd || { count: 10, palette: [0x8a93a8, 0x6f7fa8, 0xb5723a] };
     this.palette = cfg.palette;
@@ -31,7 +32,8 @@ export class Crowd {
     this._barkTimer = 4 + Math.random() * 4;
     this._tmp = new THREE.Vector3();
 
-    for (let i = 0; i < cfg.count; i++) this._spawn(i);
+    const spawnCount = this._countOverride != null ? this._countOverride : cfg.count;
+    for (let i = 0; i < spawnCount; i++) this._spawn(i);
   }
 
   _spawn(i) {
