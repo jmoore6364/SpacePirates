@@ -494,7 +494,7 @@ async function main() {
     // land mouse-look: moving the mouse right turns the view (1:1, immediate)
     const yawA = await page.evaluate(() => window.__VC__.surface.lookYaw);
     await page.evaluate(() => window.__VC__.input.moveBy(300, 0)); // flick mouse right
-    await sleep(500);
+    await sleep(1200); // allow a frame even at low software-render FPS
     const yawB = await page.evaluate(() => window.__VC__.surface.lookYaw);
     if (Math.abs(yawB - yawA) < 0.3) errors.push(`mouse turn did not rotate the character (Δ=${(yawB - yawA).toFixed(3)})`);
     console.log(`› land mouse turn: yaw Δ=${(yawB - yawA).toFixed(2)}`);
@@ -502,16 +502,16 @@ async function main() {
     // land mouse-look up/down: moving the mouse up tilts the camera up (pitch changes)
     const camY0 = await page.evaluate(() => window.__VC__.renderer.camera.position.y);
     await page.evaluate(() => window.__VC__.input.moveBy(0, -300)); // mouse up = look up
-    await sleep(500);
+    await sleep(1600);
     const look = await page.evaluate(() => ({ pitch: window.__VC__.surface.cam.pitch, camY: window.__VC__.renderer.camera.position.y }));
     if (Math.abs(look.pitch) < 0.2) errors.push(`mouse up/down look did not pitch (pitch=${look.pitch.toFixed(2)})`);
     console.log(`› land look up/down: cam pitch=${look.pitch.toFixed(2)}, camY ${camY0.toFixed(1)}→${look.camY.toFixed(1)}`);
     await page.evaluate(() => { window.__VC__.surface.lookPitch = 0; }); // level out for later shots
     // forward still works on keys
     // face an open direction first so we don't immediately bump a building
-    await page.evaluate(() => { window.__VC__.surface.lookYaw = 0; window.__VC__.surface.character.position.set(0, 0, 18); });
+    await page.evaluate(() => { window.__VC__.surface.lookYaw = 0; window.__VC__.surface.character.position.set(0, 0, 8); }); // deep in the clear plaza
     const kb = await page.evaluate(() => { const c = window.__VC__.surface.character; window.__VC__.input.press('KeyW'); return { x: c.position.x, z: c.position.z }; });
-    await sleep(500);
+    await sleep(1600);
     await page.evaluate(() => window.__VC__.input.release('KeyW'));
     const ka = await page.evaluate(() => { const c = window.__VC__.surface.character; return { x: c.position.x, z: c.position.z }; });
     if (Math.hypot(ka.x - kb.x, ka.z - kb.z) < 1) errors.push('W did not walk the character forward');
@@ -557,7 +557,7 @@ async function main() {
     const enfBefore = await page.evaluate(() => window.__VC__.surface.ground.enemies.length);
     const credBefore = await page.evaluate(() => window.__VC__.player.credits);
     await page.evaluate(() => window.__VC__.input.press('KeyJ'));
-    await page.waitForFunction(() => window.__VC__.surface.ground.enemies.length === 0, { timeout: 9000 }).catch(() => {});
+    await page.waitForFunction(() => window.__VC__.surface.ground.enemies.length === 0, { timeout: 22000 }).catch(() => {});
     await page.screenshot({ path: path.join(SHOT_DIR, 'pass9-onfoot.png') });
     await page.evaluate(() => window.__VC__.input.release('KeyJ'));
     const onfoot = await page.evaluate(() => ({
@@ -639,7 +639,7 @@ async function main() {
     await page.waitForFunction(() => window.__VC__.missionBoard.isOpen === false, { timeout: 6000 }).catch(() => {});
 
     // mission guidance: the accepted delivery shows in the HUD objectives readout
-    await sleep(700); // let the HUD redraw tick (a few frames even at low FPS)
+    await sleep(1600); // let the HUD redraw tick (a frame even at low software-render FPS)
     const guide = await page.evaluate(() => document.getElementById('hud-missions').textContent || '');
     if (!guide.includes('→')) errors.push('mission guidance not shown in HUD');
     console.log(`› mission guidance: "${guide.trim().slice(0, 60)}"`);
@@ -797,9 +797,10 @@ async function main() {
 
     // Pass 3: take off (return to the ship, press T)
     await page.evaluate(() => { window.__VC__.surface.character.position.set(0, 0, 10); });
-    await page.waitForFunction(() => window.__VC__.surface?.hud?.nearShip === true, { timeout: 5000 });
+    await sleep(700); // let the HUD recompute nearShip even at low FPS
+    await page.waitForFunction(() => window.__VC__.surface?.hud?.nearShip === true, { timeout: 8000 });
     await page.keyboard.press('t');
-    await page.waitForFunction(() => window.__VC__.scenes.mode === 'SPACE', { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(() => window.__VC__.scenes.mode === 'SPACE', { timeout: 8000 }).catch(() => {});
     const mode2 = await page.evaluate(() => window.__VC__.scenes.mode);
     if (mode2 !== 'SPACE') errors.push(`did not take off (mode=${mode2})`);
     console.log(`› takeoff → mode=${mode2}`);

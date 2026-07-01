@@ -2,6 +2,7 @@
 // point, landing pad position, collider boxes) so the surface scene can place the
 // character and ship and do simple collision. Themed by the world's palette.
 import { THREE } from '../renderer/Renderer.js';
+import { neonBuilding } from '../entities/Models.js';
 
 // Deterministic-ish PRNG so a given world always builds the same city.
 function mulberry32(seed) {
@@ -39,7 +40,7 @@ const WORLD_STYLE = {
   'verdant':    'organic', // overgrown jungle treehouses
   'the-maw':    'rock',    // carved-rock pirate fortress
 };
-const STYLE_TRAFFIC = { towers: 16, domes: 8, organic: 3, rock: 3, huts: 0 };
+const STYLE_TRAFFIC = { towers: 11, domes: 6, organic: 3, rock: 3, huts: 0 };
 const STYLE_SKYWAYS = { towers: true, domes: true };
 
 const PLAZA_R = 24;   // flat radius around the landing pad
@@ -141,8 +142,29 @@ function pushCollider(colliders, cx, cz, w, d, top) {
   });
 }
 
-// Neon megacity tower (the original look) — window-lit box + optional setback + antenna.
+// Neon megacity tower: a Blender-modelled skyscraper variant when available (random
+// facing + height for variety), else the procedural window-lit box.
 function buildTower(group, colliders, cx, cz, bottom, accent, rng, light) {
+  // sprinkle Blender-modelled skyscrapers as ~30% landmarks; the rest stay cheap
+  // window-boxes so the skyline reads full without tanking the frame budget
+  const model = rng() < 0.25 ? neonBuilding((rng() * 4) | 0) : null;
+  if (model) {
+    model.rotation.y = rng() * Math.PI * 2;
+    const hs = 0.7 + rng() * 1.0, ws = 0.9 + rng() * 0.4; // vary height + footprint
+    model.scale.set(ws, hs, ws);
+    model.updateMatrixWorld(true);
+    const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+    model.position.set(cx, bottom, cz); // model base sits at local y=0
+    model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    group.add(model);
+    pushCollider(colliders, cx, cz, size.x, size.z, bottom + size.y);
+    if (light.budget > 0 && rng() < 0.35) {
+      const pl = new THREE.PointLight(accent, 1.0, 60);
+      pl.position.set(cx, bottom + size.y, cz); group.add(pl); light.budget--;
+    }
+    return;
+  }
+
   const w = 6 + rng() * 9, d = 6 + rng() * 9, h = 10 + rng() * 40;
   const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), windowMaterial(accent, w, h));
   b.position.set(cx, bottom + h / 2, cz); b.castShadow = true; b.receiveShadow = true;
@@ -351,7 +373,7 @@ function scatterProps(group, world, heightAt, rng) {
   const rockHex = (TERRAIN[world.id] || {}).color ?? 0x223040;
   const rockMat = new THREE.MeshStandardMaterial({ color: rockHex, roughness: 1, metalness: 0, flatShading: true });
   const floraMat = new THREE.MeshStandardMaterial({ color: world.atmo, emissive: world.atmo, emissiveIntensity: 0.7, roughness: 0.5 });
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 45; i++) {
     const a = rng() * Math.PI * 2;
     const r = 36 + rng() * 150;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;

@@ -35,10 +35,13 @@ const CHARACTER_URLS = {
 
 // Custom Blender-modelled assets (Void Corsair originals). Nose toward -Z (game forward).
 const WARLORD_URL = new URL('../assets/models/warlord.glb', import.meta.url).href;
+// Neon skyscraper variants (TowerA..D), modelled upright with base at y=0.
+const NEON_BUILDINGS_URL = new URL('../assets/models/buildings-neon.glb', import.meta.url).href;
 
 const _cache = new Map();        // hullId → normalized THREE.Object3D (template to clone)
 const _charTpls = new Map();     // kind → { scene, animations } character template
 let _bossTpl = null;             // Warlord capital-ship template
+let _neonTowers = [];            // array of neon-tower template Object3Ds
 let _loaded = false;
 let _loadPromise = null;
 
@@ -81,7 +84,9 @@ export function preloadModels() {
     }).catch(() => { /* this kind falls back to the procedural figure */ }));
   const boss = load(WARLORD_URL).then((gltf) => { _bossTpl = gltf.scene; })
     .catch(() => { /* boss falls back to the procedural capital ship */ });
-  _loadPromise = Promise.all([...ships, ...characters, boss]).then(() => { _loaded = true; });
+  const towers = load(NEON_BUILDINGS_URL).then((gltf) => { _neonTowers = gltf.scene.children.slice(); })
+    .catch(() => { /* city falls back to procedural window-box towers */ });
+  _loadPromise = Promise.all([...ships, ...characters, boss, towers]).then(() => { _loaded = true; });
   return _loadPromise;
 }
 
@@ -97,6 +102,13 @@ export function shipModel(hullId) {
 // back to the procedural boss mesh. Caller scales it to the desired size.
 export function bossModel() {
   return _bossTpl ? _bossTpl.clone(true) : null;
+}
+
+// A fresh clone of one of the neon skyscraper variants (base at y=0), or null to fall
+// back to the procedural window-box tower. Pass an index (wraps) or omit for variant 0.
+export function neonBuilding(i = 0) {
+  if (!_neonTowers.length) return null;
+  return _neonTowers[i % _neonTowers.length].clone(true);
 }
 
 export const CROWD_KINDS = ['man', 'woman', 'alien'];

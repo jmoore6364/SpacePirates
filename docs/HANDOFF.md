@@ -22,6 +22,20 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Blender neon skyscrapers + test-harness fix (hard-won)** — `tools/blender/neon_towers.py`
+  models 4 upright neon-tower variants (TowerA–D) → `buildings-neon.glb`; `Models.js`
+  `neonBuilding(i)` clones them; `city.js` `buildTower` sprinkles them as ~25% landmark
+  towers among the cheap window-boxes (base at y=0, random facing + height). **Lessons:**
+  (1) buildings model tall along Blender Z → glTF Y-up = upright, NO −90° rotation (unlike
+  ships); (2) they cost real FPS on the *software* renderer (fixed cost, not object count),
+  so gate them + keep emissive soft (bloom turns hot emissive strips into beams); (3) the
+  model gate consumes an rng() call → shifts the whole city layout (moved a building into
+  the test's walk lane — walk test now starts deep in the plaza). **BIG:** headless system
+  **Edge started crashing every run** (`LoadEnclaveImageW` VBS enclave error, even on a
+  clean baseline) — switched the self-test to Playwright's **bundled Chromium** (drop
+  `channel:'msedge'`); it runs the same swiftshader path, passes, and exits cleanly (no
+  flaky teardown hang). Bumped several on-foot test windows (500→1600ms, combat→22000ms)
+  since the scene got heavier. `npx playwright install chromium` is required.
 - **Custom Blender asset: Warlord boss capital ship** — first model authored with
   **headless Blender** (`tools/blender/warlord.py`, run via
   `"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe" --background --python

@@ -98,12 +98,15 @@ export class SurfaceScene {
     // a named local you can chat with for a rumor / market tip
     this._addVendor('informant', 'Informant', new THREE.Vector3(-14, 0, -14), 0xc0a0ff);
 
-    // living crowd: civilians wander, avoid buildings, scatter when shots fly
+    // living crowd: civilians wander, avoid buildings, scatter when shots fly. Capped
+    // (animated characters are skinned meshes — the heaviest thing on-foot) so the
+    // scene stays performant on low-end / software rendering.
     this.crowd = new Crowd(this.scene, {
       colliders: this.colliders,
       groundY: this.heightAt,
       world,
       bounds: 150,
+      count: Math.min(world.crowd?.count ?? 10, 10),
       onBark: (line) => { if (this.onEvent) this.onEvent({ type: 'bark', line }); },
     });
 
