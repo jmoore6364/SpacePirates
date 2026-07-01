@@ -50,8 +50,9 @@ async function main() {
   try {
     await waitForServer(URL);
 
+    // Use Playwright's bundled Chromium (not system Edge): headless Edge started
+    // crashing on this machine with a Windows VBS enclave error (LoadEnclaveImageW).
     browser = await chromium.launch({
-      channel: 'msedge',
       headless: true,
       args: [
         '--ignore-gpu-blocklist',
