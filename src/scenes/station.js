@@ -28,15 +28,23 @@ export function buildStation(world) {
     new THREE.MeshStandardMaterial({ color: 0x2a3446, roughness: 0.7, metalness: 0.4, side: THREE.DoubleSide }),
   );
   wall.position.y = wallH / 2; wall.receiveShadow = true; group.add(wall);
+  // a bright band of viewports showing space (deep-blue "glass" that reads as lit)
   const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(R - 0.3, R - 0.3, 3.2, 48, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0x0b2236, side: THREE.DoubleSide }),
+    new THREE.CylinderGeometry(R - 0.3, R - 0.3, 3.4, 48, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0x2a5a8c, side: THREE.DoubleSide }),
   );
   band.position.y = 8; group.add(band);
-  // glowing trims top + bottom of the window band
-  for (const y of [6.4, 9.6]) {
-    const t = new THREE.Mesh(new THREE.TorusGeometry(R - 0.2, 0.1, 6, 48), new THREE.MeshBasicMaterial({ color: neon }));
+  // glowing frame trims + vertical mullions between viewports
+  for (const y of [6.2, 9.8]) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(R - 0.15, 0.14, 6, 48), new THREE.MeshBasicMaterial({ color: neon }));
     t.rotation.x = Math.PI / 2; t.position.y = y; group.add(t);
+  }
+  const mullMat = new THREE.MeshStandardMaterial({ color: 0x2a3446, metalness: 0.5, roughness: 0.5 });
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.6, 0.6), mullMat);
+    m.position.set(Math.cos(a) * (R - 0.1), 8, Math.sin(a) * (R - 0.1));
+    m.lookAt(0, 8, 0); group.add(m);
   }
 
   // star dome overhead (dark shell + a starfield inside → space through the "roof")
@@ -45,15 +53,18 @@ export function buildStation(world) {
     new THREE.MeshBasicMaterial({ color: 0x05070e, side: THREE.BackSide }),
   );
   group.add(dome);
-  group.add(makeStars(1400, R * 1.2));
+  group.add(makeStars(2600, R * 1.2));
 
-  // ceiling light ring + a few real lights
-  const ringLight = new THREE.Mesh(new THREE.TorusGeometry(R * 0.5, 0.5, 8, 40), new THREE.MeshBasicMaterial({ color: 0xdfeaff }));
+  // ceiling light ring + real lights (bright — the concourse should read clearly)
+  const ringLight = new THREE.Mesh(new THREE.TorusGeometry(R * 0.5, 0.55, 8, 40), new THREE.MeshBasicMaterial({ color: 0xeef4ff }));
   ringLight.rotation.x = Math.PI / 2; ringLight.position.y = wallH - 1; group.add(ringLight);
-  for (const a of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) {
-    const pl = new THREE.PointLight(0xeaf2ff, 1.2, 90);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const pl = new THREE.PointLight(0xeaf2ff, 1.7, 110);
     pl.position.set(Math.cos(a) * R * 0.5, wallH - 2, Math.sin(a) * R * 0.5); group.add(pl);
   }
+  group.add(new THREE.PointLight(0xbfe0ff, 1.4, 130)); // central fill (at origin, high)
+  group.children[group.children.length - 1].position.y = wallH - 3;
 
   // central holo-pillar (info column) with glowing rings
   const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.8, 10, 12), new THREE.MeshStandardMaterial({ color: 0x222a3a, metalness: 0.6, roughness: 0.4, emissive: neon, emissiveIntensity: 0.15 }));
@@ -61,6 +72,20 @@ export function buildStation(world) {
   for (const y of [3, 6, 9]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.12, 6, 20), new THREE.MeshBasicMaterial({ color: neon }));
     ring.rotation.x = Math.PI / 2; ring.position.set(0, y, -22); group.add(ring);
+  }
+
+  // --- cantina bar (station flavor) ---
+  buildCantina(group, -18, -6);
+
+  // floating holo-billboards (translucent colour, read as advertisements)
+  const holoCols = [0x66e0ff, 0xffe6a0, 0x8effa0];
+  for (let i = 0; i < 3; i++) {
+    const a = i * Math.PI * 2 / 3 + 0.6;
+    const panel = new THREE.Mesh(
+      new THREE.PlaneGeometry(6, 3.4),
+      new THREE.MeshBasicMaterial({ color: holoCols[i], transparent: true, opacity: 0.35, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    panel.position.set(Math.cos(a) * 30, 8, Math.sin(a) * 30); panel.lookAt(0, 8, 0); group.add(panel);
   }
 
   // scattered crates + planters for life
@@ -103,18 +128,50 @@ function pushSeg(colliders, x, z, len, a) {
   colliders.push({ min: new THREE.Vector3(minX, 0, minZ), max: new THREE.Vector3(maxX, 30, maxZ) });
 }
 
+// A neon cantina: curved counter with a lit edge, back-bar of glowing bottles, stools,
+// and a "CANTINA" neon sign — placed facing the concourse centre.
+function buildCantina(group, bx, bz) {
+  const ang = Math.atan2(-bz, -bx);                 // face the middle
+  const along = new THREE.Vector3(-Math.sin(ang), 0, Math.cos(ang));  // counter length axis
+  const back = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang)).multiplyScalar(-1); // toward wall
+  const front = back.clone().multiplyScalar(-1);
+
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(12, 1.6, 2.2), new THREE.MeshStandardMaterial({ color: 0x2a2030, metalness: 0.4, roughness: 0.5, emissive: 0x3a1030, emissiveIntensity: 0.3 }));
+  bar.position.set(bx, 0.8, bz); bar.rotation.y = ang; bar.castShadow = true; group.add(bar);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(12, 0.12, 0.35), new THREE.MeshBasicMaterial({ color: 0xff5db1 }));
+  edge.position.set(bx, 1.64, bz); edge.rotation.y = ang; group.add(edge);
+
+  const shelf = new THREE.Mesh(new THREE.BoxGeometry(12, 3.4, 0.6), new THREE.MeshStandardMaterial({ color: 0x1a1420, metalness: 0.3, roughness: 0.6 }));
+  shelf.position.set(bx + back.x * 1.7, 1.9, bz + back.z * 1.7); shelf.rotation.y = ang; group.add(shelf);
+  const cols = [0x66e0ff, 0xff5db1, 0xffe6a0, 0x8effa0, 0xc0a0ff];
+  for (let i = 0; i < 9; i++) {
+    const off = (i - 4) * 1.25;
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.9, 6), new THREE.MeshStandardMaterial({ color: cols[i % 5], emissive: cols[i % 5], emissiveIntensity: 0.6 }));
+    b.position.set(bx + back.x * 1.5 + along.x * off, 2.15, bz + back.z * 1.5 + along.z * off); group.add(b);
+  }
+  const stoolMat = new THREE.MeshStandardMaterial({ color: 0x44485a, metalness: 0.6, roughness: 0.4 });
+  for (let i = 0; i < 5; i++) {
+    const off = (i - 2) * 2.3;
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.3, 8), stoolMat);
+    s.position.set(bx + front.x * 2.3 + along.x * off, 0.65, bz + front.z * 2.3 + along.z * off); group.add(s);
+  }
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.3, 0.2), new THREE.MeshBasicMaterial({ color: 0xff5db1 }));
+  sign.position.set(bx + back.x * 0.9, 5.4, bz + back.z * 0.9); sign.rotation.y = ang; group.add(sign);
+  const glow = new THREE.PointLight(0xff5db1, 1.4, 34); glow.position.set(bx, 4, bz); group.add(glow);
+}
+
 function makeStars(n, radius) {
   const g = new THREE.BufferGeometry();
   const pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    // upper hemisphere-ish shell so stars sit above the deck (through the dome)
-    const u = Math.random(), v = Math.random() * 0.6 + 0.05;
+    // upper hemisphere shell so stars fill the dome above the deck
+    const u = Math.random(), v = Math.random() * 0.9 + 0.05;
     const th = u * Math.PI * 2, ph = Math.acos(1 - v);
-    const r = radius * (0.85 + Math.random() * 0.15);
+    const r = radius * (0.82 + Math.random() * 0.18);
     pos[i * 3] = Math.sin(ph) * Math.cos(th) * r;
     pos[i * 3 + 1] = Math.cos(ph) * r + 2;
     pos[i * 3 + 2] = Math.sin(ph) * Math.sin(th) * r;
   }
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  return new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfe0ff, size: 0.8, sizeAttenuation: true }));
+  return new THREE.Points(g, new THREE.PointsMaterial({ color: 0xdfeaff, size: 1.3, sizeAttenuation: true }));
 }

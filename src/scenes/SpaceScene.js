@@ -160,7 +160,34 @@ export class SpaceScene {
     }
   }
 
+  // Cinematic dock: auto-fly the ship into a station over ~1.7s, then call onArrive
+  // (the host fades to the interior). Input is ignored during the sequence.
+  startDock(worldId, onArrive) {
+    const target = this.planets.find((p) => p.userData.world.id === worldId);
+    if (!target) { onArrive(); return; }
+    this._dock = { pos: target.position.clone(), r: target.userData.radius || 90, t: 0, dur: 1.7, onArrive, from: this.ship.position.clone() };
+  }
+
+  _runDock(dt) {
+    const d = this._dock; d.t += dt;
+    const k = Math.min(1, d.t / d.dur);
+    const ease = k * (2 - k); // ease-out toward the station
+    const dir = this._tmp.copy(d.pos).sub(d.from); const dist = dir.length() || 1; dir.normalize();
+    const reach = Math.max(0, dist - d.r * 0.75); // stop just short of the hull
+    this.ship.position.copy(d.from).addScaledVector(dir, reach * ease);
+    this.ship.object.lookAt(d.pos);
+    this.ship.throttle = 1;
+    this._enginePulse += dt * 12;
+    const eng = this.ship.object.userData.engine;
+    if (eng) eng.scale.setScalar(1.4 + Math.sin(this._enginePulse) * 0.1);
+    for (const p of this.planets) p.rotation.y += dt * (p.userData.spin || 0.03);
+    if (this.chase) this.chase.update(dt, this.ship.object, 1);
+    this.hud = { throttle: 1, speed: this.ship.maxSpeed, maxSpeed: this.ship.maxSpeed, approach: this.approach, docking: true, combat: this.combat.hudData() };
+    if (k >= 1) { const cb = d.onArrive; this._dock = null; cb(); }
+  }
+
   update(dt, renderer) {
+    if (this._dock) { this._runDock(dt); return; }
     this.ship.update(dt, this.readControls());
 
     for (const p of this.planets) p.rotation.y += dt * (p.userData.spin || 0.03);

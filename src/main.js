@@ -245,7 +245,19 @@ function transition(midFn) {
   }, 460);
 }
 
+// Landing on a station first plays a short cinematic dock (fly into the hull), then
+// the normal land transition. Planets land immediately.
 function land(world) {
+  if (world.station && space && !space._dock) {
+    exitLook();
+    toast(`Docking with ${world.name}…`);
+    space.startDock(world.id, () => doLand(world));
+    return;
+  }
+  doLand(world);
+}
+
+function doLand(world) {
   const baseThreat = space?.combat?.wanted || 0;
   // faction standing shapes the welcome: allies shield you, hostile ports pile on
   const rep = player.repOf(world.id);
