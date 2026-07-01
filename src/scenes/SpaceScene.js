@@ -4,7 +4,7 @@
 import { THREE } from '../renderer/Renderer.js';
 import { Ship } from '../entities/Ship.js';
 import { ChaseCamera } from '../core/ChaseCamera.js';
-import { makeStarfield, makePlanet, makeSun } from './props.js';
+import { makeStarfield, makePlanet, makeSun, makeStation } from './props.js';
 import { WORLDS } from '../world/Worlds.js';
 import { player } from '../game/Player.js';
 import { Combat } from '../systems/Combat.js';
@@ -32,7 +32,7 @@ export class SpaceScene {
     this.scene.add(makeSun([-1500, 600, -1200]));
 
     this.planets = WORLDS.map((w) => {
-      const g = makePlanet(w);
+      const g = w.station ? makeStation(w) : makePlanet(w);
       g.userData.world = w;
       this.scene.add(g);
       return g;

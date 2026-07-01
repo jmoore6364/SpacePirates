@@ -22,6 +22,19 @@ _Last updated: 2026-06-24. Working notes so we can pick straight back up._
   commit → push → confirm deploy `success`.
 
 ## Features added this session (newest first)
+- **Landable space station (Ares Station)** — a new destination you approach in space
+  and land on to walk its interior. `tools/blender/station.py` → `station.glb` (ringed
+  hub + solar arrays + comms dish); `Models.js` `stationModel()`; `props.js`
+  `makeStation(world)` renders it (scaled to `world.r`, slow spin, procedural hub+ring
+  fallback). `Worlds.js` adds `ares-station` with `station:true`. `SpaceScene` uses
+  `makeStation` for `w.station` (kept in `this.planets` so approach/markers/starmap
+  work). Landing reuses **SurfaceScene** branched on `world.station`: `station.js`
+  `buildStation()` builds a domed concourse (deck + docking ring, perimeter wall +
+  window band, star **dome** overhead via a Points starfield, ceiling light ring,
+  central holo-pillar, crates, a ring of wall-segment colliders); flat floor, no
+  traffic, crowd bounded to the concourse. `main.js` `openInteract` opens station
+  vendor panels **directly** (counters, not enterable buildings). Self-test green on
+  Chromium.
 - **Blender neon skyscrapers + test-harness fix (hard-won)** — `tools/blender/neon_towers.py`
   models 4 upright neon-tower variants (TowerA–D) → `buildings-neon.glb`; `Models.js`
   `neonBuilding(i)` clones them; `city.js` `buildTower` sprinkles them as ~25% landmark

@@ -1,5 +1,37 @@
 // Reusable world-building factories (stars, planets, sun). Presentation only.
 import { THREE } from '../renderer/Renderer.js';
+import { stationModel } from '../entities/Models.js';
+
+// A deep-space station destination: the Blender model scaled to the world radius (or a
+// simple procedural hub+ring fallback), plus a faint marker glow. Spins slowly.
+export function makeStation(world) {
+  const group = new THREE.Group();
+  group.position.fromArray(world.position);
+  const r = world.r || 90;
+
+  const model = stationModel();
+  if (model) {
+    const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+    const maxd = Math.max(size.x, size.y, size.z) || 1;
+    model.scale.setScalar((r * 1.7) / maxd);
+    group.add(model);
+  } else {
+    const hull = new THREE.MeshStandardMaterial({ color: 0x9aa0aa, roughness: 0.4, metalness: 0.75 });
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.12, r * 0.12, r * 1.3, 12), hull);
+    group.add(hub);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 0.7, r * 0.08, 8, 28), hull);
+    ring.rotation.x = Math.PI / 2; group.add(ring);
+  }
+
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(r * 1.05, 24, 24),
+    new THREE.MeshBasicMaterial({ color: world.atmo, transparent: true, opacity: 0.08, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  group.add(glow);
+  group.userData.spin = 0.06;
+  group.userData.radius = r;
+  return group;
+}
 
 export function makeStarfield(count = 3000, radius = 8000) {
   const positions = new Float32Array(count * 3);

@@ -5,6 +5,7 @@ import { Character } from '../entities/Character.js';
 import { ThirdPersonCamera } from '../core/ThirdPersonCamera.js';
 import { Ship } from '../entities/Ship.js';
 import { buildCity } from './city.js';
+import { buildStation } from './station.js';
 import { GroundCombat } from '../systems/GroundCombat.js';
 import { Crowd } from './Crowd.js';
 import { Traffic } from './Traffic.js';
@@ -60,7 +61,9 @@ export class SurfaceScene {
     fill.position.set(-70, 50, -40);
     this.scene.add(fill);
 
-    const city = buildCity(world);
+    // a station world builds a walkable interior concourse instead of an outdoor city
+    this.isStation = !!world.station;
+    const city = this.isStation ? buildStation(world) : buildCity(world);
     this.scene.add(city.group);
     this.colliders = city.colliders;
     this.heightAt = city.heightAt;
@@ -105,13 +108,13 @@ export class SurfaceScene {
       colliders: this.colliders,
       groundY: this.heightAt,
       world,
-      bounds: 150,
+      bounds: this.isStation ? 42 : 150, // keep station crowd inside the concourse
       count: Math.min(world.crowd?.count ?? 10, 10),
       onBark: (line) => { if (this.onEvent) this.onEvent({ type: 'bark', line }); },
     });
 
-    // flying traffic cruising the skyways overhead (density suits the world's style)
-    this.traffic = new Traffic(this.scene, { count: city.trafficCount ?? 16, bounds: 200 });
+    // flying traffic cruises the skyways overhead outdoors (none inside a station)
+    this.traffic = this.isStation ? null : new Traffic(this.scene, { count: city.trafficCount ?? 16, bounds: 200 });
 
     // on-foot blaster combat — enforcers come if you landed with heat on you
     this.ground = new GroundCombat(this.scene, this.character, input, {

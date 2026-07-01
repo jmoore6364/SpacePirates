@@ -46,6 +46,15 @@ export const WORLDS = [
     crowd: { count: 8, palette: [0x6b5560, 0xa83a4a, 0x7a4a55, 0x9a5560, 0x4a3038] },
     security: 0.0,
   },
+  {
+    id: 'ares-station', name: 'Ares Station', theme: 'Deep-space trade station',
+    position: [-140, 340, -1000], r: 95, color: 0x8a95a8, atmo: 0x88ccff,
+    blurb: 'A ringed orbital hub — docking, trade, and a stiff drink.',
+    station: true, // landing drops you into the walkable station interior
+    light: { sky: 0x223046, ground: 0x0a0e16, sun: 0xdfe8ff, sunI: 1.4, amb: 0x2a3a52, ambI: 0.95, fog: 0x070a12, fogNear: 80, fogFar: 520 },
+    crowd: { count: 10, palette: [0x66e0ff, 0xff5db1, 0x8a93a8, 0x9a6fb0, 0xffe6a0] },
+    security: 0.4,
+  },
 ];
 
 export const worldById = (id) => WORLDS.find((w) => w.id === id);

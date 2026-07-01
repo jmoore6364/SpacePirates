@@ -336,6 +336,8 @@ function talkToGiver(world) {
 function openInteract(world, kind) {
   tutorial.mark('interacted');
   if (kind === 'quest') { talkToGiver(world); return; }
+  // station vendors are counters right in the concourse; planet vendors are buildings
+  if (surface && surface.isStation) { openVendorPanel(kind, world, surface); return; }
   enterBuilding(kind, world);
 }
 

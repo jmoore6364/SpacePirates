@@ -37,11 +37,14 @@ const CHARACTER_URLS = {
 const WARLORD_URL = new URL('../assets/models/warlord.glb', import.meta.url).href;
 // Neon skyscraper variants (TowerA..D), modelled upright with base at y=0.
 const NEON_BUILDINGS_URL = new URL('../assets/models/buildings-neon.glb', import.meta.url).href;
+// Deep-space station (rendered in space; you can land on it).
+const STATION_URL = new URL('../assets/models/station.glb', import.meta.url).href;
 
 const _cache = new Map();        // hullId → normalized THREE.Object3D (template to clone)
 const _charTpls = new Map();     // kind → { scene, animations } character template
 let _bossTpl = null;             // Warlord capital-ship template
 let _neonTowers = [];            // array of neon-tower template Object3Ds
+let _stationTpl = null;          // space-station template
 let _loaded = false;
 let _loadPromise = null;
 
@@ -86,7 +89,9 @@ export function preloadModels() {
     .catch(() => { /* boss falls back to the procedural capital ship */ });
   const towers = load(NEON_BUILDINGS_URL).then((gltf) => { _neonTowers = gltf.scene.children.slice(); })
     .catch(() => { /* city falls back to procedural window-box towers */ });
-  _loadPromise = Promise.all([...ships, ...characters, boss, towers]).then(() => { _loaded = true; });
+  const station = load(STATION_URL).then((gltf) => { _stationTpl = gltf.scene; })
+    .catch(() => { /* station falls back to a procedural build */ });
+  _loadPromise = Promise.all([...ships, ...characters, boss, towers, station]).then(() => { _loaded = true; });
   return _loadPromise;
 }
 
@@ -109,6 +114,12 @@ export function bossModel() {
 export function neonBuilding(i = 0) {
   if (!_neonTowers.length) return null;
   return _neonTowers[i % _neonTowers.length].clone(true);
+}
+
+// A fresh clone of the space-station model, or null if it hasn't loaded. Caller scales
+// it to the destination's radius.
+export function stationModel() {
+  return _stationTpl ? _stationTpl.clone(true) : null;
 }
 
 export const CROWD_KINDS = ['man', 'woman', 'alien'];
