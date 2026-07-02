@@ -160,34 +160,56 @@ export class SpaceScene {
     }
   }
 
-  // Cinematic dock: auto-fly the ship into a station over ~1.7s, then call onArrive
-  // (the host fades to the interior). Input is ignored during the sequence.
+  // Cinematic dock: snap to a consistent approach path and cut to a side camera that
+  // watches the ship fly all the way into the station, then call onArrive (the host
+  // fades to the interior). A fixed path so it reads as docking no matter where you
+  // pressed F. Input is ignored during the sequence.
   startDock(worldId, onArrive) {
     const target = this.planets.find((p) => p.userData.world.id === worldId);
     if (!target) { onArrive(); return; }
-    this._dock = { pos: target.position.clone(), r: target.userData.radius || 90, t: 0, dur: 4.2, onArrive, from: this.ship.position.clone() };
+    const c = target.position.clone();
+    const R = target.userData.radius || 90;
+    // fly in from the side the player approached from (biased a little above the plane)
+    const approach = this.ship.object.position.clone().sub(c);
+    if (approach.lengthSq() < 1) approach.set(0.2, 0.25, 1);
+    approach.y = Math.abs(approach.y) * 0.4 + 0.12;
+    approach.normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const perp = new THREE.Vector3().crossVectors(approach, up);
+    if (perp.lengthSq() < 0.05) perp.set(1, 0, 0);
+    perp.normalize();
+    const start = c.clone().addScaledVector(approach, R * 2.8);
+    const end = c.clone().addScaledVector(approach, R * 1.05); // right at the hull
+    const camPos = c.clone().addScaledVector(perp, R * 2.1).addScaledVector(up, R * 0.9).addScaledVector(approach, R * 0.7);
+    this._dock = { c, t: 0, dur: 4.2, onArrive, start, end, camPos };
+    this.ship.object.position.copy(start);
+    this.ship.object.lookAt(c);
+    this.inputLocked = true;
+    if (this.renderer) { this.renderer.camera.position.copy(camPos); this.renderer.camera.lookAt(c); } // hard cut to the cinematic vantage
   }
 
-  _runDock(dt) {
+  _runDock(dt, renderer) {
     const d = this._dock; d.t += dt;
     const k = Math.min(1, d.t / d.dur);
-    const ease = k * (2 - k); // ease-out toward the station
-    const dir = this._tmp.copy(d.pos).sub(d.from); const dist = dir.length() || 1; dir.normalize();
-    const reach = Math.max(0, dist - d.r * 0.75); // stop just short of the hull
-    this.ship.position.copy(d.from).addScaledVector(dir, reach * ease);
-    this.ship.object.lookAt(d.pos);
+    const ease = k * k * (3 - 2 * k); // smoothstep in/out
+    this.ship.object.position.lerpVectors(d.start, d.end, ease);
+    this.ship.object.lookAt(d.c);
     this.ship.throttle = 1;
     this._enginePulse += dt * 12;
     const eng = this.ship.object.userData.engine;
-    if (eng) eng.scale.setScalar(1.4 + Math.sin(this._enginePulse) * 0.1);
+    if (eng) eng.scale.setScalar(1.5 + Math.sin(this._enginePulse) * 0.12);
     for (const p of this.planets) p.rotation.y += dt * (p.userData.spin || 0.03);
-    if (this.chase) this.chase.update(dt, this.ship.object, 1);
+    const r = renderer || this.renderer;
+    if (r) {
+      r.camera.position.copy(d.camPos);
+      r.camera.lookAt(this._tmp.copy(this.ship.object.position).lerp(d.c, 0.4)); // track between ship + station
+    }
     this.hud = { throttle: 1, speed: this.ship.maxSpeed, maxSpeed: this.ship.maxSpeed, approach: this.approach, docking: true, combat: this.combat.hudData() };
-    if (k >= 1) { const cb = d.onArrive; this._dock = null; cb(); }
+    if (k >= 1) { this.inputLocked = false; const cb = d.onArrive; this._dock = null; cb(); }
   }
 
   update(dt, renderer) {
-    if (this._dock) { this._runDock(dt); return; }
+    if (this._dock) { this._runDock(dt, renderer); return; }
     this.ship.update(dt, this.readControls());
 
     for (const p of this.planets) p.rotation.y += dt * (p.userData.spin || 0.03);
