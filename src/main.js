@@ -817,7 +817,12 @@ function renderHud() {
         (c.enemies ? `<div class="hl">⚠ ${c.enemies} hostile${c.enemies > 1 ? 's' : ''}</div>` : '');
     }
 
-    if (h.approach && !starMap.isOpen) {
+    if (h.docking && !starMap.isOpen) {
+      el.approach.innerHTML =
+        `<b style="font-size:1.15em;letter-spacing:3px">${h.dockLabel || 'DOCKING…'}</b>` +
+        `<div class="lo">${h.approach?.world?.name || 'station'}</div>`;
+      el.approach.classList.add('show');
+    } else if (h.approach && !starMap.isOpen) {
       el.approach.innerHTML =
         `▸ APPROACH: <b>${h.approach.world.name}</b> — press <b>F</b> to land` +
         `<div class="lo">${h.approach.world.blurb}</div>`;

@@ -179,9 +179,10 @@ export class SpaceScene {
     if (perp.lengthSq() < 0.05) perp.set(1, 0, 0);
     perp.normalize();
     const start = c.clone().addScaledVector(approach, R * 2.8);
-    const end = c.clone().addScaledVector(approach, R * 1.05); // right at the hull
+    const end = c.clone().addScaledVector(approach, R * 0.92); // nestled at the hull/dock
     const camPos = c.clone().addScaledVector(perp, R * 2.1).addScaledVector(up, R * 0.9).addScaledVector(approach, R * 0.7);
-    this._dock = { c, t: 0, dur: 4.2, onArrive, start, end, camPos };
+    const camClose = end.clone().addScaledVector(perp, 9).addScaledVector(up, 5.5).addScaledVector(approach, 10); // tight close-up on the docked ship
+    this._dock = { c, t: 0, dur: 4.8, onArrive, start, end, camPos, camClose };
     this.ship.object.position.copy(start);
     this.ship.object.lookAt(c);
     this.inputLocked = true;
@@ -191,20 +192,27 @@ export class SpaceScene {
   _runDock(dt, renderer) {
     const d = this._dock; d.t += dt;
     const k = Math.min(1, d.t / d.dur);
-    const ease = k * k * (3 - 2 * k); // smoothstep in/out
+    // fly in over the first ~72%, then hold "docked" (decel, engine idle, camera push-in)
+    const FLY = 0.72;
+    const flyK = Math.min(1, k / FLY);
+    const ease = flyK * flyK * (3 - 2 * flyK);
+    const holdK = k > FLY ? (k - FLY) / (1 - FLY) : 0;
     this.ship.object.position.lerpVectors(d.start, d.end, ease);
     this.ship.object.lookAt(d.c);
-    this.ship.throttle = 1;
+    this.ship.throttle = 1 - holdK;
     this._enginePulse += dt * 12;
     const eng = this.ship.object.userData.engine;
-    if (eng) eng.scale.setScalar(1.5 + Math.sin(this._enginePulse) * 0.12);
+    if (eng) eng.scale.setScalar(Math.max(0.15, 1.5 - holdK * 1.25) + Math.sin(this._enginePulse) * 0.1 * (1 - holdK));
     for (const p of this.planets) p.rotation.y += dt * (p.userData.spin || 0.03);
     const r = renderer || this.renderer;
     if (r) {
-      r.camera.position.copy(d.camPos);
-      r.camera.lookAt(this._tmp.copy(this.ship.object.position).lerp(d.c, 0.4)); // track between ship + station
+      if (!this._tmp2) this._tmp2 = new THREE.Vector3();
+      const hs = holdK * holdK * (3 - 2 * holdK);
+      this._tmp2.copy(d.camPos).lerp(d.camClose, hs); // dolly in steadily as it docks
+      r.camera.position.copy(this._tmp2);
+      r.camera.lookAt(this._tmp.copy(this.ship.object.position).lerp(d.c, 0.35 * (1 - holdK))); // settle onto the ship as it docks
     }
-    this.hud = { throttle: 1, speed: this.ship.maxSpeed, maxSpeed: this.ship.maxSpeed, approach: this.approach, docking: true, combat: this.combat.hudData() };
+    this.hud = { throttle: this.ship.throttle, speed: this.ship.maxSpeed * (1 - holdK), maxSpeed: this.ship.maxSpeed, approach: this.approach, docking: true, dockLabel: holdK > 0.4 ? 'DOCKED' : 'DOCKING…', combat: this.combat.hudData() };
     if (k >= 1) { this.inputLocked = false; const cb = d.onArrive; this._dock = null; cb(); }
   }
 
