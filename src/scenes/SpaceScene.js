@@ -165,7 +165,7 @@ export class SpaceScene {
   startDock(worldId, onArrive) {
     const target = this.planets.find((p) => p.userData.world.id === worldId);
     if (!target) { onArrive(); return; }
-    this._dock = { pos: target.position.clone(), r: target.userData.radius || 90, t: 0, dur: 1.7, onArrive, from: this.ship.position.clone() };
+    this._dock = { pos: target.position.clone(), r: target.userData.radius || 90, t: 0, dur: 4.2, onArrive, from: this.ship.position.clone() };
   }
 
   _runDock(dt) {

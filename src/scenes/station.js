@@ -77,15 +77,15 @@ export function buildStation(world) {
   // --- cantina bar (station flavor) ---
   buildCantina(group, -18, -6);
 
-  // floating holo-billboards (translucent colour, read as advertisements)
-  const holoCols = [0x66e0ff, 0xffe6a0, 0x8effa0];
-  for (let i = 0; i < 3; i++) {
+  // floating holo-billboards with text (read as station advertisements)
+  const holos = [['ARES STATION', 0x66e0ff], ['◈ TRADE HUB', 0xffe6a0], ['FLY SAFE', 0x8effa0]];
+  for (let i = 0; i < holos.length; i++) {
     const a = i * Math.PI * 2 / 3 + 0.6;
     const panel = new THREE.Mesh(
-      new THREE.PlaneGeometry(6, 3.4),
-      new THREE.MeshBasicMaterial({ color: holoCols[i], transparent: true, opacity: 0.35, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.PlaneGeometry(8, 4),
+      new THREE.MeshBasicMaterial({ map: holoText(holos[i][0], holos[i][1]), transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
-    panel.position.set(Math.cos(a) * 30, 8, Math.sin(a) * 30); panel.lookAt(0, 8, 0); group.add(panel);
+    panel.position.set(Math.cos(a) * 30, 8.5, Math.sin(a) * 30); panel.lookAt(0, 8.5, 0); group.add(panel);
   }
 
   // scattered crates + planters for life
@@ -128,36 +128,56 @@ function pushSeg(colliders, x, z, len, a) {
   colliders.push({ min: new THREE.Vector3(minX, 0, minZ), max: new THREE.Vector3(maxX, 30, maxZ) });
 }
 
-// A neon cantina: curved counter with a lit edge, back-bar of glowing bottles, stools,
-// and a "CANTINA" neon sign — placed facing the concourse centre.
-function buildCantina(group, bx, bz) {
-  const ang = Math.atan2(-bz, -bx);                 // face the middle
-  const along = new THREE.Vector3(-Math.sin(ang), 0, Math.cos(ang));  // counter length axis
-  const back = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang)).multiplyScalar(-1); // toward wall
-  const front = back.clone().multiplyScalar(-1);
+// A neon cantina built in a local group (counter along +X, front = +Z, wall at −Z),
+// then rotated to face the concourse centre — so bottles/stools/sign all stay aligned.
+function buildCantina(parent, bx, bz) {
+  const g = new THREE.Group();
+  g.position.set(bx, 0, bz);
+  g.rotation.y = Math.atan2(-bx, -bz); // local +Z faces the middle
 
   const bar = new THREE.Mesh(new THREE.BoxGeometry(12, 1.6, 2.2), new THREE.MeshStandardMaterial({ color: 0x2a2030, metalness: 0.4, roughness: 0.5, emissive: 0x3a1030, emissiveIntensity: 0.3 }));
-  bar.position.set(bx, 0.8, bz); bar.rotation.y = ang; bar.castShadow = true; group.add(bar);
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(12, 0.12, 0.35), new THREE.MeshBasicMaterial({ color: 0xff5db1 }));
-  edge.position.set(bx, 1.64, bz); edge.rotation.y = ang; group.add(edge);
+  bar.position.set(0, 0.8, 0); bar.castShadow = true; g.add(bar);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(12, 0.14, 0.35), new THREE.MeshBasicMaterial({ color: 0xff5db1 }));
+  edge.position.set(0, 1.66, 1.0); g.add(edge); // lit front lip
 
-  const shelf = new THREE.Mesh(new THREE.BoxGeometry(12, 3.4, 0.6), new THREE.MeshStandardMaterial({ color: 0x1a1420, metalness: 0.3, roughness: 0.6 }));
-  shelf.position.set(bx + back.x * 1.7, 1.9, bz + back.z * 1.7); shelf.rotation.y = ang; group.add(shelf);
+  const shelf = new THREE.Mesh(new THREE.BoxGeometry(12, 3.6, 0.5), new THREE.MeshStandardMaterial({ color: 0x1a1420, metalness: 0.3, roughness: 0.6 }));
+  shelf.position.set(0, 2.0, -1.4); g.add(shelf);
   const cols = [0x66e0ff, 0xff5db1, 0xffe6a0, 0x8effa0, 0xc0a0ff];
-  for (let i = 0; i < 9; i++) {
-    const off = (i - 4) * 1.25;
+  for (let i = 0; i < 9; i++) { // bottles lined up on the shelf, along the counter
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.9, 6), new THREE.MeshStandardMaterial({ color: cols[i % 5], emissive: cols[i % 5], emissiveIntensity: 0.6 }));
-    b.position.set(bx + back.x * 1.5 + along.x * off, 2.15, bz + back.z * 1.5 + along.z * off); group.add(b);
+    b.position.set((i - 4) * 1.25, 2.15, -1.2); g.add(b);
   }
   const stoolMat = new THREE.MeshStandardMaterial({ color: 0x44485a, metalness: 0.6, roughness: 0.4 });
-  for (let i = 0; i < 5; i++) {
-    const off = (i - 2) * 2.3;
+  for (let i = 0; i < 5; i++) { // stools in front of the counter
     const s = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.3, 8), stoolMat);
-    s.position.set(bx + front.x * 2.3 + along.x * off, 0.65, bz + front.z * 2.3 + along.z * off); group.add(s);
+    s.position.set((i - 2) * 2.3, 0.65, 2.1); g.add(s);
   }
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.3, 0.2), new THREE.MeshBasicMaterial({ color: 0xff5db1 }));
-  sign.position.set(bx + back.x * 0.9, 5.4, bz + back.z * 0.9); sign.rotation.y = ang; group.add(sign);
-  const glow = new THREE.PointLight(0xff5db1, 1.4, 34); glow.position.set(bx, 4, bz); group.add(glow);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.6), new THREE.MeshBasicMaterial({ map: holoText('◈ CANTINA', 0xff5db1), transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  sign.position.set(0, 5.4, -1.2); g.add(sign);
+  const glow = new THREE.PointLight(0xff5db1, 1.6, 36); glow.position.set(0, 4, 0); g.add(glow);
+
+  parent.add(g);
+}
+
+// A holographic sign texture: glowing text + frame on a faint panel (additive-blended).
+function holoText(text, hex) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const ctx = c.getContext('2d');
+  const col = '#' + (hex >>> 0).toString(16).padStart(6, '0');
+  ctx.clearRect(0, 0, 512, 256);
+  ctx.fillStyle = 'rgba(18,34,60,0.30)'; ctx.fillRect(0, 0, 512, 256);
+  ctx.strokeStyle = col; ctx.lineWidth = 6; ctx.strokeRect(12, 12, 488, 232);
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 62px Consolas, ui-monospace, monospace';
+  const words = text.split(' ');
+  if (text.length > 11 && words.length > 1) {
+    const mid = Math.ceil(words.length / 2);
+    ctx.fillText(words.slice(0, mid).join(' '), 256, 98);
+    ctx.fillText(words.slice(mid).join(' '), 256, 162);
+  } else {
+    ctx.fillText(text, 256, 128);
+  }
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
 }
 
 function makeStars(n, radius) {
